@@ -1,0 +1,42 @@
+{
+  "info": {
+    "_postman_id": "6330a2ab-e040-44e4-8482-53babcfc458f",
+    "name": "User-Services",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "54770118"
+  },
+  "item": [
+    {
+      "name": "RegisterRequest",
+      "request": {
+        "method": "GET",
+        "header": []
+      },
+      "response": []
+    },
+    {
+      "name": "LoginRequest",
+      "request": {
+        "method": "GET",
+        "header": []
+      },
+      "response": []
+    },
+    {
+      "name": "GetUserRequest",
+      "request": {
+        "method": "GET",
+        "header": []
+      },
+      "response": []
+    },
+    {
+      "name": "UpdateUserRequest",
+      "request": {
+        "method": "GET",
+        "header": []
+      },
+      "response": []
+    }
+  ]
+}
