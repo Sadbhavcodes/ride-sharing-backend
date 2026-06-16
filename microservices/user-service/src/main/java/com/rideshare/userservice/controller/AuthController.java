@@ -5,6 +5,7 @@ import com.rideshare.userservice.dto.LoginResponse;
 import com.rideshare.userservice.dto.RegisterRequest;
 import com.rideshare.userservice.dto.RegisterResponse;
 import com.rideshare.userservice.service.AuthService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,8 +27,12 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public LoginResponse login(@RequestBody LoginRequest request){
+    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request){
         System.out.println("Login request arrived safely at endpoint");
-        return authService.login(request);
+        String token = authService.login(request);
+
+        return ResponseEntity.ok(
+                new LoginResponse(token)
+        );
     }
 }
