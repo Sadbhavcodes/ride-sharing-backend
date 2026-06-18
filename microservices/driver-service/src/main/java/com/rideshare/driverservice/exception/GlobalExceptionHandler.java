@@ -41,22 +41,7 @@ public class GlobalExceptionHandler {
                 .body(error);
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGenericException(
-            Exception ex) {
-
-        ErrorResponse error = new ErrorResponse(
-                ex.getMessage(),
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                LocalDateTime.now()
-        );
-
-        return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(error);
-    }
-
-    @ExceptionHandler(DriverNotFoundException.class)
+    @ExceptionHandler(VehicleNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleVehicleNotFoundException(
             VehicleNotFoundException ex) {
 
@@ -71,7 +56,7 @@ public class GlobalExceptionHandler {
                 .body(error);
     }
 
-    @ExceptionHandler(DriverAlreadyExistsException.class)
+    @ExceptionHandler(VehicleAlreadyExistsException.class)
     public ResponseEntity<ErrorResponse> handleVehicleAlreadyExistsException(
             VehicleAlreadyExistsException ex) {
 
@@ -83,6 +68,21 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
+                .body(error);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleGenericException(
+            Exception ex) {
+
+        ErrorResponse error = new ErrorResponse(
+                ex.getMessage(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                LocalDateTime.now()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(error);
     }
 }
