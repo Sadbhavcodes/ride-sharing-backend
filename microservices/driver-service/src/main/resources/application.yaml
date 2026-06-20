@@ -1,22 +1,6 @@
-server:
-  port: 8082
-
 spring:
   application:
-    name: driver-service
+    name: driverservice
 
-  datasource:
-    url: jdbc:postgresql://localhost:5432/rideshare_drivers
-    username: postgres
-    password: postgres
-
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-
-jwt:
-  secret: myVeryStrongSecretKeyForRideShareApplication2025
+  config:
+    import: configserver:http://localhost:8888

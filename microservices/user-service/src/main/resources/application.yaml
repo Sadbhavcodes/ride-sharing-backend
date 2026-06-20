@@ -1,14 +1,6 @@
 spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/rideshare_users
-    username: postgres
-    password: postgres
+  application:
+    name: userservice
 
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-
-jwt:
-  secret: myVeryStrongSecretKeyForRideShareApplication2025
-  expiration: 86400000
+  config:
+    import: configserver:http://localhost:8888

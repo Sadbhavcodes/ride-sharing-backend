@@ -1,17 +1,6 @@
 spring:
   application:
-    name: trip-service
+    name: tripservice
 
-  datasource:
-    url: jdbc:postgresql://localhost:5432/rideshare_trips
-    username: postgres
-    password: postgres
-
-  jpa:
-    hibernate:
-      ddl-auto: update
-
-    show-sql: true
-
-server:
-  port: 8083
+  config:
+    import: configserver:http://localhost:8888
