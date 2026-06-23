@@ -26,4 +26,9 @@ public class UserController {
         System.out.println("POST/ users/ " + id + " arrived");
         return userServices.updateUser(id, updateUserRequest);
     }
+
+    @GetMapping("/by-email/{email}")
+    public UserResponse getUserByEmail(@PathVariable String email){
+        return userServices.getUserByEmail(email);
+    }
 }

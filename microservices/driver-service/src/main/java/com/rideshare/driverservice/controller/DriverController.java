@@ -1,6 +1,7 @@
 package com.rideshare.driverservice.controller;
 
 import com.rideshare.driverservice.dto.CreateDriverRequest;
+import com.rideshare.driverservice.dto.DriverAvailabilityResponse;
 import com.rideshare.driverservice.dto.UpdateDriverAvailabilityRequest;
 import com.rideshare.driverservice.dto.UpdateDriverStatusRequest;
 import com.rideshare.driverservice.entity.Driver;
@@ -24,6 +25,11 @@ public class DriverController {
     @GetMapping("/{id}")
     public Driver getDriver(@PathVariable Long id){
         return driverService.getDriver(id);
+    }
+
+    @GetMapping("/{id}/availability")
+    public DriverAvailabilityResponse getDriverAvailability(@PathVariable Long id){
+        return driverService.getDriverAvailability(id);
     }
 
     @GetMapping("/users/{userId}")

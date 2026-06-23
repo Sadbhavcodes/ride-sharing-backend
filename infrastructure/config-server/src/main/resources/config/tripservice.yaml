@@ -2,9 +2,6 @@ server:
   port: 8083
 
 spring:
-  application:
-    name: tripservice
-
   datasource:
     url: jdbc:postgresql://localhost:5432/rideshare_trips
     username: postgres

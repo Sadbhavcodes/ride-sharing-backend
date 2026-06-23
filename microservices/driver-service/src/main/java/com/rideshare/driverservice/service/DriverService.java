@@ -1,6 +1,7 @@
 package com.rideshare.driverservice.service;
 
 import com.rideshare.driverservice.dto.CreateDriverRequest;
+import com.rideshare.driverservice.dto.DriverAvailabilityResponse;
 import com.rideshare.driverservice.dto.UpdateDriverAvailabilityRequest;
 import com.rideshare.driverservice.dto.UpdateDriverStatusRequest;
 import com.rideshare.driverservice.entity.Availability;
@@ -34,6 +35,11 @@ public class DriverService {
 
     public Driver getDriver(Long id){
         return findDriverById(id);
+    }
+
+    public DriverAvailabilityResponse getDriverAvailability(Long id){
+        Driver driver = findDriverById(id);
+        return new DriverAvailabilityResponse(driver.getId(), driver.getAvailability());
     }
 
     public Driver getDriverByUserId(Long userId){

@@ -1,5 +1,7 @@
 package com.rideshare.tripservice.service;
 
+import com.rideshare.tripservice.client.UserDto;
+import com.rideshare.tripservice.client.UserFeignClient;
 import com.rideshare.tripservice.dto.AssignDriverRequest;
 import com.rideshare.tripservice.dto.CreateTripRequest;
 import com.rideshare.tripservice.dto.UpdateTripStatusRequest;
@@ -15,15 +17,18 @@ import java.util.List;
 public class TripService {
 
     private final TripRepository tripRepository;
-
-    public TripService(TripRepository tripRepository) {
+    private final UserFeignClient userFeignClient;
+    public TripService(TripRepository tripRepository, UserFeignClient userFeignClient) {
         this.tripRepository = tripRepository;
+        this.userFeignClient = userFeignClient;
     }
 
     public Trip createTrip(CreateTripRequest request) {
+        UserDto rider = userFeignClient.getUserById(request.riderId());
+
         Trip trip = new Trip();
 
-        trip.setRiderId(request.riderId());
+        trip.setRiderId(rider.getId());
         trip.setPickupLocation(request.pickUpLocation());
         trip.setDropLocation(request.dropLocation());
         trip.setStatus(TripStatus.REQUESTED);

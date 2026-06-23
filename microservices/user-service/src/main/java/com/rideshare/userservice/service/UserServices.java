@@ -67,4 +67,21 @@ public class UserServices {
                 foundUser.getRole()
         );
     }
+    public UserResponse getUserByEmail(String email){
+        Optional<User> user = userRepository.findByEmail(email);
+        if(user.isEmpty()){
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "User with such email does not exists"
+            );
+        }
+        User foundUser = user.get();
+        return new UserResponse(
+                foundUser.getId(),
+                foundUser.getEmail(),
+                foundUser.getUsername(),
+                foundUser.getPhoneNumber(),
+                foundUser.getRole()
+        );
+    }
 }
