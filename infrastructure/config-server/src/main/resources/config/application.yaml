@@ -1,7 +1,3 @@
-jwt:
-  secret: myVeryStrongSecretKeyForRideShareApplication2025
-  expiration: 86400000
-
 eureka:
   client:
     service-url:

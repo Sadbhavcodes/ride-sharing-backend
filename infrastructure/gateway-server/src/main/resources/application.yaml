@@ -4,3 +4,8 @@ spring:
 
   config:
     import: optional:configserver:http://localhost:8888
+
+# JWT secret — must match the value used by user-service to sign tokens.
+# Override this in the config-server's gatewayserver.yaml for production.
+jwt:
+  secret: ${JWT_SECRET:myVeryStrongSecretKeyForRideShareApplication2025}
