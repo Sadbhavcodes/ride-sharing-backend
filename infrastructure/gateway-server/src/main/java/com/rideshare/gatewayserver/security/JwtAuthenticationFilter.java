@@ -66,15 +66,18 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
         String token = authHeader.substring(7);
 
-        if (!jwtService.isTokenValid(token)) {
+        // Parse token once — extractSubject validates signature + expiry internally.
+        // If it throws, the token is invalid/expired.
+        String subject;
+        try {
+            subject = jwtService.extractSubject(token);
+        } catch (Exception e) {
             return unauthorized(exchange, "Invalid or expired JWT token");
         }
 
-        // Extract subject and forward it downstream as a custom header
-        String userId = jwtService.extractSubject(token);
-
+        // Forward the subject (email) downstream so services don't need to re-parse the token
         ServerHttpRequest mutatedRequest = request.mutate()
-                .header("X-User-Id", userId)
+                .header("X-User-Id", subject)
                 .build();
 
         return chain.filter(exchange.mutate().request(mutatedRequest).build());

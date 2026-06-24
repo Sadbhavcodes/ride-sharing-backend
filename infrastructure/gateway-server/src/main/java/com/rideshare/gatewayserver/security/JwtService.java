@@ -20,9 +20,8 @@ public class JwtService {
     }
 
     /**
-     * Extract the subject (userId) from a raw JWT string (without "Bearer " prefix).
-     *
-     * @throws JwtException if the token is invalid, expired, or tampered with
+     * Extract the subject (email) from a raw JWT string (without "Bearer " prefix).
+     * Validates the signature and expiry automatically — throws JwtException if invalid.
      */
     public String extractSubject(String token) {
         return Jwts.parser()
@@ -31,18 +30,5 @@ public class JwtService {
                 .parseSignedClaims(token)
                 .getPayload()
                 .getSubject();
-    }
-
-    /**
-     * Returns true if the token is structurally valid and not expired.
-     * The gateway only cares about validity — it doesn't perform user-level lookups.
-     */
-    public boolean isTokenValid(String token) {
-        try {
-            extractSubject(token);
-            return true;
-        } catch (JwtException | IllegalArgumentException e) {
-            return false;
-        }
     }
 }
