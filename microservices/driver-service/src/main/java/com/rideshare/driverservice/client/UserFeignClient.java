@@ -1,4 +1,4 @@
-package com.rideshare.tripservice.client;
+package com.rideshare.driverservice.client;
 
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;

@@ -1,5 +1,7 @@
 package com.rideshare.driverservice.service;
 
+import com.rideshare.driverservice.client.UserDto;
+import com.rideshare.driverservice.client.UserFeignClient;
 import com.rideshare.driverservice.dto.CreateDriverRequest;
 import com.rideshare.driverservice.dto.DriverAvailabilityResponse;
 import com.rideshare.driverservice.dto.UpdateDriverAvailabilityRequest;
@@ -15,15 +17,22 @@ import org.springframework.stereotype.Service;
 @Service
 public class DriverService {
     private final DriverRepository driverRepository;
-
-    public DriverService(DriverRepository driverRepository) {
+    private final UserFeignClient userFeignClient;
+    public DriverService(DriverRepository driverRepository, UserFeignClient userFeignClient) {
         this.driverRepository = driverRepository;
+        this.userFeignClient = userFeignClient;
     }
 
     public Driver createDriver(CreateDriverRequest createDriverRequest){
         if(driverRepository.findByUserId(createDriverRequest.userId()).isPresent()){
             throw new DriverAlreadyExistsException(createDriverRequest.userId());
         }
+        UserDto user = userFeignClient.getUserById(createDriverRequest.userId());
+        
+        if (!"DRIVER".equalsIgnoreCase(user.getRole())) {
+            throw new IllegalStateException("User with ID " + createDriverRequest.userId() + " does not have the DRIVER role");
+        }
+        
         Driver driver = new Driver();
         driver.setUserId(createDriverRequest.userId());
         driver.setVehicleId(createDriverRequest.vehicleId());

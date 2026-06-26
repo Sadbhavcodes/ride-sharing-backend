@@ -24,37 +24,17 @@ public class JwtService {
                 secret.getBytes(StandardCharsets.UTF_8)
         );
     }
-    public String generateToken(String email) {
 
+    public String generateToken(String email) {
         return Jwts.builder()
                 .subject(email)
                 .issuedAt(new Date())
                 .expiration(
                         new Date(
-                                System.currentTimeMillis()
-                                        + expiration
+                                System.currentTimeMillis() + expiration
                         )
                 )
-                .signWith(
-                        getSignKey()
-                )
+                .signWith(getSignKey())
                 .compact();
-    }
-    public String extractEmail(String token) {
-
-        return Jwts.parser()
-                .verifyWith((SecretKey) getSignKey())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload()
-                .getSubject();
-    }
-
-    public boolean isTokenValid(String token,
-                                String email) {
-
-        return email.equals(
-                extractEmail(token)
-        );
     }
 }

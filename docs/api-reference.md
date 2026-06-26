@@ -1,69 +1,74 @@
 # Ride-Sharing Backend — API Reference
 
-> **Generated:** June 22, 2026  
-> **Architecture:** Spring Boot Microservices · PostgreSQL · Spring Cloud Config Server  
-> **Config Server:** `http://localhost:8888`  
-> **Authentication:** JWT Bearer Token (required on protected routes — see security notes per service)
+> **Updated:** June 25, 2026
+> **Architecture:** Spring Boot Microservices · PostgreSQL · Spring Cloud Config · Eureka · API Gateway
+> **Single Entry Point:** `http://localhost:8080` (API Gateway)
+> **Authentication:** JWT Bearer Token — validated centrally at the Gateway. All requests must include `Authorization: Bearer <token>` except `/auth/register` and `/auth/login`.
 
 ---
 
 ## Table of Contents
 
 1. [Service Registry](#service-registry)
-2. [User Service — Port 8081](#1-user-service-port-8081)
-   - [POST /auth/register](#post-authregister)
-   - [POST /auth/login](#post-authlogin)
-   - [GET /users/{id}](#get-usersid)
-   - [PUT /users/{id}](#put-usersid)
-   - [GET /users/by-email/{email}](#get-usersby-emailemail)
-3. [Driver Service — Port 8082](#2-driver-service-port-8082)
-   - [POST /drivers](#post-drivers)
-   - [GET /drivers/{id}](#get-driversid)
-   - [GET /drivers/{id}/availability](#get-driversidavailability)
-   - [GET /drivers/users/{userId}](#get-driversusersuserid)
-   - [PUT /drivers/status](#put-driversstatus)
-   - [PUT /drivers/availability](#put-driversavailability)
-   - [POST /vehicles](#post-vehicles)
-   - [GET /vehicles/{id}](#get-vehiclesid)
-   - [PUT /vehicles/{id}](#put-vehiclesid)
-4. [Trip Service — Port 8083](#3-trip-service-port-8083)
-   - [POST /trips](#post-trips)
-   - [GET /trips/{id}](#get-tripsid)
-   - [GET /trips/rider/{riderId}](#get-tripsriderriderid)
-   - [GET /trips/driver/{driverId}](#get-tripsdriverdriverid)
-   - [PATCH /trips/{id}/assign-driver](#patch-tripsidassign-driver)
-   - [PATCH /trips/{id}/status](#patch-tripsidstatus)
-5. [Enum Reference](#enum-reference)
-6. [Error Response Format](#error-response-format)
-7. [Quick Reference Table](#quick-reference--all-endpoints)
+2. [Authentication Flow](#authentication-flow)
+3. [User Service](#1-user-service-port-8081)
+4. [Driver Service](#2-driver-service-port-8082)
+5. [Trip Service](#3-trip-service-port-8083)
+6. [Enum Reference](#enum-reference)
+7. [Error Response Format](#error-response-format)
+8. [Quick Reference Table](#quick-reference--all-endpoints)
 
 ---
 
 ## Service Registry
 
-| Service | App Name | Base URL | Database |
+| Service | App Name | Internal Port | Public via Gateway |
 |---|---|---|---|
-| Config Server | `config-server` | `http://localhost:8888` | — |
-| User Service | `userservice` | `http://localhost:8081` | `rideshare_users` (PostgreSQL) |
-| Driver Service | `driverservice` | `http://localhost:8082` | `rideshare_drivers` (PostgreSQL) |
-| Trip Service | `tripservice` | `http://localhost:8083` | `rideshare_trips` (PostgreSQL) |
+| API Gateway | `gatewayserver` | `8080` | — (is the entry point) |
+| Config Server | `config-server` | `8888` | Not exposed |
+| Eureka Server | `eurekaserver` | `8761` | Not exposed |
+| User Service | `userservice` | `8081` | `http://localhost:8080/auth/**`, `/users/**` |
+| Driver Service | `driverservice` | `8082` | `http://localhost:8080/drivers/**`, `/vehicles/**` |
+| Trip Service | `tripservice` | `8083` | `http://localhost:8080/trips/**` |
+
+> [!IMPORTANT]
+> All client-facing requests must go through the Gateway at port **8080**.
+> Direct service ports (8081, 8082, 8083) are internal only and should never be used by external clients.
+
+---
+
+## Authentication Flow
+
+```
+POST http://localhost:8080/auth/login
+  → Gateway permits (public route)
+  → user-service issues JWT
+
+All other requests:
+  → Gateway intercepts
+  → Validates JWT signature against shared secret
+  → On valid: forwards request to target service
+  → On invalid/missing: returns 401 immediately (request never reaches service)
+```
+
+Inter-service communication (Feign) goes **directly between services via Eureka** — it does not pass through the gateway and requires no token.
 
 ---
 
 ## 1. User Service (Port 8081)
 
-Handles user registration, authentication, and profile management.  
-**Base URL:** `http://localhost:8081`
+Handles user registration, authentication, and profile management.
+**Gateway base:** `http://localhost:8080`
 
 ---
 
 ### POST /auth/register
 
-Register a new user (rider or driver) in the system.
+Register a new user (rider or driver).
 
-**Method:** `POST`  
-**URL:** `http://localhost:8081/auth/register`  
-**Auth Required:** No  
+**Method:** `POST`
+**URL:** `http://localhost:8080/auth/register`
+**Auth Required:** No (public route)
 **Content-Type:** `application/json`
 
 #### Request Body
@@ -80,10 +85,10 @@ Register a new user (rider or driver) in the system.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `username` | String | Yes | Display name of the user |
+| `username` | String | Yes | Display name |
 | `email` | String | Yes | Unique email address |
-| `password` | String | Yes | Plain-text password (hashed server-side) |
-| `phoneNumber` | String | Yes | Contact phone number |
+| `password` | String | Yes | Plain-text (hashed server-side via BCrypt) |
+| `phoneNumber` | String | Yes | Contact number |
 | `role` | Enum | Yes | `RIDER` or `DRIVER` |
 
 #### Response — `200 OK`
@@ -98,23 +103,23 @@ Register a new user (rider or driver) in the system.
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `id` | Long | Auto-generated user ID |
-| `username` | String | Registered username |
-| `phoneNumber` | String | Registered phone number |
-| `email` | String | Registered email |
-| `role` | Enum | `RIDER` or `DRIVER` |
+#### Response — `400 Bad Request`
+
+```json
+{
+  "message": "Email already exists"
+}
+```
 
 ---
 
 ### POST /auth/login
 
-Authenticate a user and receive a JWT token.
+Authenticate and receive a JWT token.
 
-**Method:** `POST`  
-**URL:** `http://localhost:8081/auth/login`  
-**Auth Required:** No  
+**Method:** `POST`
+**URL:** `http://localhost:8080/auth/login`
+**Auth Required:** No (public route)
 **Content-Type:** `application/json`
 
 #### Request Body
@@ -126,11 +131,6 @@ Authenticate a user and receive a JWT token.
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `email` | String | Yes | Registered email address |
-| `password` | String | Yes | User's password |
-
 #### Response — `200 OK`
 
 ```json
@@ -139,11 +139,7 @@ Authenticate a user and receive a JWT token.
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `token` | String | JWT Bearer token to use in subsequent requests |
-
-#### Response — `401 Unauthorized`
+#### Response — `400 Bad Request`
 
 ```json
 {
@@ -155,17 +151,17 @@ Authenticate a user and receive a JWT token.
 
 ### GET /users/{id}
 
-Retrieve a user profile by their unique ID.
+Retrieve a user profile by ID.
 
-**Method:** `GET`  
-**URL:** `http://localhost:8081/users/{id}`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`
+**Method:** `GET`
+**URL:** `http://localhost:8080/users/{id}`
+**Auth Required:** Yes
 
 #### Path Parameters
 
 | Parameter | Type | Description |
 |---|---|---|
-| `id` | Long | The unique user ID |
+| `id` | Long | User ID |
 
 #### Response — `200 OK`
 
@@ -183,7 +179,7 @@ Retrieve a user profile by their unique ID.
 
 ```json
 {
-  "message": "User not found with id: 1"
+  "message": "User not found"
 }
 ```
 
@@ -191,18 +187,12 @@ Retrieve a user profile by their unique ID.
 
 ### PUT /users/{id}
 
-Update a user's username and/or email address.
+Update username and/or email.
 
-**Method:** `PUT`  
-**URL:** `http://localhost:8081/users/{id}`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`  
+**Method:** `PUT`
+**URL:** `http://localhost:8080/users/{id}`
+**Auth Required:** Yes
 **Content-Type:** `application/json`
-
-#### Path Parameters
-
-| Parameter | Type | Description |
-|---|---|---|
-| `id` | Long | The unique user ID to update |
 
 #### Request Body
 
@@ -212,11 +202,6 @@ Update a user's username and/or email address.
   "email": "john_new@example.com"
 }
 ```
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `username` | String | Yes | New display name |
-| `email` | String | Yes | New email address |
 
 #### Response — `200 OK`
 
@@ -234,17 +219,11 @@ Update a user's username and/or email address.
 
 ### GET /users/by-email/{email}
 
-Look up a user by their email address (used internally by other services).
+Look up a user by email (used internally by Feign clients).
 
-**Method:** `GET`  
-**URL:** `http://localhost:8081/users/by-email/{email}`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`
-
-#### Path Parameters
-
-| Parameter | Type | Description |
-|---|---|---|
-| `email` | String | The email address to look up |
+**Method:** `GET`
+**URL:** `http://localhost:8080/users/by-email/{email}`
+**Auth Required:** Yes
 
 #### Response — `200 OK`
 
@@ -258,30 +237,22 @@ Look up a user by their email address (used internally by other services).
 }
 ```
 
-#### Response — `404 Not Found`
-
-```json
-{
-  "message": "User not found with email: john@example.com"
-}
-```
-
 ---
 
 ## 2. Driver Service (Port 8082)
 
-Manages driver profiles, vehicle registrations, and operational status tracking.  
-**Base URL:** `http://localhost:8082`
+Manages driver profiles, vehicle registrations, and operational status.
+**Gateway base:** `http://localhost:8080`
 
 ---
 
 ### POST /drivers
 
-Create a new driver profile by linking a registered user to a vehicle.
+Create a driver profile by linking a user to a vehicle.
 
-**Method:** `POST`  
-**URL:** `http://localhost:8082/drivers`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`  
+**Method:** `POST`
+**URL:** `http://localhost:8080/drivers`
+**Auth Required:** Yes
 **Content-Type:** `application/json`
 
 #### Request Body
@@ -292,11 +263,6 @@ Create a new driver profile by linking a registered user to a vehicle.
   "vehicleId": 10
 }
 ```
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `userId` | Long | Yes | ID of the existing user (from User Service) |
-| `vehicleId` | Long | Yes | ID of the registered vehicle |
 
 #### Response — `200 OK`
 
@@ -311,30 +277,15 @@ Create a new driver profile by linking a registered user to a vehicle.
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `id` | Long | Auto-generated driver profile ID |
-| `userId` | Long | Linked user ID |
-| `vehicleId` | Long | Linked vehicle ID |
-| `availability` | Enum | `ONLINE`, `OFFLINE`, or `BUSY` |
-| `status` | Enum | `PENDING`, `ACTIVE`, or `SUSPENDED` |
-| `rating` | Double | Driver rating (default: `0.0`) |
-
 ---
 
 ### GET /drivers/{id}
 
 Retrieve a driver profile by driver ID.
 
-**Method:** `GET`  
-**URL:** `http://localhost:8082/drivers/{id}`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`
-
-#### Path Parameters
-
-| Parameter | Type | Description |
-|---|---|---|
-| `id` | Long | The unique driver ID |
+**Method:** `GET`
+**URL:** `http://localhost:8080/drivers/{id}`
+**Auth Required:** Yes
 
 #### Response — `200 OK`
 
@@ -355,7 +306,7 @@ Retrieve a driver profile by driver ID.
 {
   "message": "Driver not found",
   "status": 404,
-  "timestamp": "2026-06-22T20:00:00"
+  "timestamp": "2026-06-25T20:00:00"
 }
 ```
 
@@ -363,17 +314,11 @@ Retrieve a driver profile by driver ID.
 
 ### GET /drivers/{id}/availability
 
-Get the current availability status of a driver without fetching the full profile.
+Get a driver's current availability without fetching the full profile.
 
-**Method:** `GET`  
-**URL:** `http://localhost:8082/drivers/{id}/availability`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`
-
-#### Path Parameters
-
-| Parameter | Type | Description |
-|---|---|---|
-| `id` | Long | The unique driver ID |
+**Method:** `GET`
+**URL:** `http://localhost:8080/drivers/{id}/availability`
+**Auth Required:** Yes
 
 #### Response — `200 OK`
 
@@ -384,36 +329,15 @@ Get the current availability status of a driver without fetching the full profil
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `driverId` | Long | The driver's ID |
-| `availability` | Enum | `ONLINE`, `OFFLINE`, or `BUSY` |
-
-#### Response — `404 Not Found`
-
-```json
-{
-  "message": "Driver not found",
-  "status": 404,
-  "timestamp": "2026-06-22T20:00:00"
-}
-```
-
 ---
 
 ### GET /drivers/users/{userId}
 
 Retrieve a driver profile using the linked user's ID.
 
-**Method:** `GET`  
-**URL:** `http://localhost:8082/drivers/users/{userId}`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`
-
-#### Path Parameters
-
-| Parameter | Type | Description |
-|---|---|---|
-| `userId` | Long | The user ID linked to the driver profile |
+**Method:** `GET`
+**URL:** `http://localhost:8080/drivers/users/{userId}`
+**Auth Required:** Yes
 
 #### Response — `200 OK`
 
@@ -432,11 +356,11 @@ Retrieve a driver profile using the linked user's ID.
 
 ### PUT /drivers/status
 
-Update a driver's account status (e.g., activate or suspend).
+Update a driver's account status (activate / suspend).
 
-**Method:** `PUT`  
-**URL:** `http://localhost:8082/drivers/status`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`  
+**Method:** `PUT`
+**URL:** `http://localhost:8080/drivers/status`
+**Auth Required:** Yes
 **Content-Type:** `application/json`
 
 #### Request Body
@@ -447,11 +371,6 @@ Update a driver's account status (e.g., activate or suspend).
   "status": "ACTIVE"
 }
 ```
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `id` | Long | Yes | Driver ID to update |
-| `status` | Enum | Yes | `PENDING`, `ACTIVE`, or `SUSPENDED` |
 
 #### Response — `200 OK`
 
@@ -470,11 +389,11 @@ Update a driver's account status (e.g., activate or suspend).
 
 ### PUT /drivers/availability
 
-Toggle a driver's real-time availability (online/offline/busy).
+Toggle a driver's real-time availability.
 
-**Method:** `PUT`  
-**URL:** `http://localhost:8082/drivers/availability`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`  
+**Method:** `PUT`
+**URL:** `http://localhost:8080/drivers/availability`
+**Auth Required:** Yes
 **Content-Type:** `application/json`
 
 #### Request Body
@@ -485,11 +404,6 @@ Toggle a driver's real-time availability (online/offline/busy).
   "availability": "ONLINE"
 }
 ```
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `id` | Long | Yes | Driver ID to update |
-| `availability` | Enum | Yes | `ONLINE`, `OFFLINE`, or `BUSY` |
 
 #### Response — `200 OK`
 
@@ -508,11 +422,11 @@ Toggle a driver's real-time availability (online/offline/busy).
 
 ### POST /vehicles
 
-Register a new vehicle in the system.
+Register a new vehicle.
 
-**Method:** `POST`  
-**URL:** `http://localhost:8082/vehicles`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`  
+**Method:** `POST`
+**URL:** `http://localhost:8080/vehicles`
+**Auth Required:** Yes
 **Content-Type:** `application/json`
 
 #### Request Body
@@ -525,13 +439,6 @@ Register a new vehicle in the system.
   "color": "White"
 }
 ```
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `plateNumber` | String | Yes | Unique license plate number |
-| `make` | String | Yes | Vehicle manufacturer (e.g., Toyota) |
-| `model` | String | Yes | Vehicle model (e.g., Camry) |
-| `color` | String | Yes | Vehicle color |
 
 #### Response — `200 OK`
 
@@ -546,30 +453,15 @@ Register a new vehicle in the system.
 }
 ```
 
-| Field | Type | Description |
-|---|---|---|
-| `id` | Long | Auto-generated vehicle ID |
-| `plateNumber` | String | License plate number |
-| `make` | String | Vehicle manufacturer |
-| `model` | String | Vehicle model |
-| `color` | String | Vehicle color |
-| `verificationStatus` | Enum | `PENDING`, `VERIFIED`, or `REJECTED` |
-
 ---
 
 ### GET /vehicles/{id}
 
-Retrieve a vehicle by its ID.
+Retrieve a vehicle by ID.
 
-**Method:** `GET`  
-**URL:** `http://localhost:8082/vehicles/{id}`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`
-
-#### Path Parameters
-
-| Parameter | Type | Description |
-|---|---|---|
-| `id` | Long | The unique vehicle ID |
+**Method:** `GET`
+**URL:** `http://localhost:8080/vehicles/{id}`
+**Auth Required:** Yes
 
 #### Response — `200 OK`
 
@@ -588,18 +480,12 @@ Retrieve a vehicle by its ID.
 
 ### PUT /vehicles/{id}
 
-Update the verification status of a vehicle (admin operation).
+Update a vehicle's verification status (admin operation).
 
-**Method:** `PUT`  
-**URL:** `http://localhost:8082/vehicles/{id}`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`  
+**Method:** `PUT`
+**URL:** `http://localhost:8080/vehicles/{id}`
+**Auth Required:** Yes
 **Content-Type:** `application/json`
-
-#### Path Parameters
-
-| Parameter | Type | Description |
-|---|---|---|
-| `id` | Long | The vehicle ID (path variable) |
 
 #### Request Body
 
@@ -609,11 +495,6 @@ Update the verification status of a vehicle (admin operation).
   "verificationStatus": "VERIFIED"
 }
 ```
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `id` | Long | Yes | Vehicle ID to update |
-| `verificationStatus` | Enum | Yes | `PENDING`, `VERIFIED`, or `REJECTED` |
 
 #### Response — `200 OK`
 
@@ -632,8 +513,8 @@ Update the verification status of a vehicle (admin operation).
 
 ## 3. Trip Service (Port 8083)
 
-Manages the full lifecycle of ride trips, from request to completion.  
-**Base URL:** `http://localhost:8083`
+Manages the full lifecycle of ride trips.
+**Gateway base:** `http://localhost:8080`
 
 ---
 
@@ -641,9 +522,9 @@ Manages the full lifecycle of ride trips, from request to completion.
 
 Create a new trip request from a rider.
 
-**Method:** `POST`  
-**URL:** `http://localhost:8083/trips`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`  
+**Method:** `POST`
+**URL:** `http://localhost:8080/trips`
+**Auth Required:** Yes
 **Content-Type:** `application/json`
 
 #### Request Body
@@ -651,71 +532,78 @@ Create a new trip request from a rider.
 ```json
 {
   "riderId": 1,
-  "pickUpLocation": "123 Main St, Downtown",
-  "dropLocation": "456 Airport Rd, Terminal 2"
+  "pickUpLocation": "Delhi",
+  "dropLocation": "Noida"
 }
 ```
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `riderId` | Long | Yes | ID of the rider requesting the trip |
+| `riderId` | Long | Yes | Must be a valid existing user ID |
 | `pickUpLocation` | String | Yes | Pickup address or location name |
 | `dropLocation` | String | Yes | Drop-off address or location name |
 
-#### Response — `201 Created`
+#### Response — `200 OK`
 
 ```json
 {
-  "id": 100,
+  "id": 3,
   "riderId": 1,
   "driverId": null,
-  "pickupLocation": "123 Main St, Downtown",
-  "dropLocation": "456 Airport Rd, Terminal 2",
+  "pickupLocation": "Delhi",
+  "dropLocation": "Noida",
   "status": "REQUESTED",
-  "createdAt": "2026-06-22T20:00:00",
-  "updatedAt": "2026-06-22T20:00:00"
+  "createdAt": "2026-06-25T20:30:00",
+  "updatedAt": "2026-06-25T20:30:00"
 }
 ```
 
 | Field | Type | Description |
 |---|---|---|
 | `id` | Long | Auto-generated trip ID |
-| `riderId` | Long | ID of the requesting rider |
-| `driverId` | Long / null | Assigned driver ID (null until matched) |
+| `riderId` | Long | Confirmed rider ID (validated against user-service) |
+| `driverId` | Long / null | `null` until a driver is matched |
 | `pickupLocation` | String | Pickup location |
 | `dropLocation` | String | Drop-off location |
-| `status` | Enum | Initial value: `REQUESTED` |
-| `createdAt` | LocalDateTime | ISO-8601 creation timestamp |
-| `updatedAt` | LocalDateTime | ISO-8601 last-updated timestamp |
+| `status` | Enum | Always `REQUESTED` on creation |
+| `createdAt` | LocalDateTime | ISO-8601 — auto-set on insert |
+| `updatedAt` | LocalDateTime | ISO-8601 — auto-set on insert and every update |
+
+#### Response — `404 Not Found` (invalid riderId)
+
+```json
+{
+  "message": "Rider not found with id: 10",
+  "status": 404,
+  "timestamp": "2026-06-25T20:30:00"
+}
+```
+
+> [!NOTE]
+> `riderId` is validated via a Feign call to `user-service` before the trip is saved. If the user does not exist, the request fails with `404` — not `500`.
 
 ---
 
 ### GET /trips/{id}
 
-Retrieve a single trip by its ID.
+Retrieve a single trip by ID.
 
-**Method:** `GET`  
-**URL:** `http://localhost:8083/trips/{id}`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`
-
-#### Path Parameters
-
-| Parameter | Type | Description |
-|---|---|---|
-| `id` | Long | The unique trip ID |
+**Method:** `GET`
+**URL:** `http://localhost:8080/trips/{id}`
+**Auth Required:** Yes
 
 #### Response — `200 OK`
 
 ```json
 {
-  "id": 100,
+  "id": 3,
   "riderId": 1,
   "driverId": 5,
-  "pickupLocation": "123 Main St, Downtown",
-  "dropLocation": "456 Airport Rd, Terminal 2",
+  "pickupLocation": "Delhi",
+  "dropLocation": "Noida",
   "status": "IN_PROGRESS",
-  "createdAt": "2026-06-22T20:00:00",
-  "updatedAt": "2026-06-22T20:15:00"
+  "createdAt": "2026-06-25T20:00:00",
+  "updatedAt": "2026-06-25T20:15:00"
 }
 ```
 
@@ -723,9 +611,9 @@ Retrieve a single trip by its ID.
 
 ```json
 {
-  "message": "Trip not found with id: 100",
+  "message": "Trip not found with id: 99",
   "status": 404,
-  "timestamp": "2026-06-22T20:00:00"
+  "timestamp": "2026-06-25T20:00:00"
 }
 ```
 
@@ -733,41 +621,25 @@ Retrieve a single trip by its ID.
 
 ### GET /trips/rider/{riderId}
 
-Retrieve all trips associated with a specific rider.
+Retrieve all trips for a rider.
 
-**Method:** `GET`  
-**URL:** `http://localhost:8083/trips/rider/{riderId}`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`
-
-#### Path Parameters
-
-| Parameter | Type | Description |
-|---|---|---|
-| `riderId` | Long | The rider's user ID |
+**Method:** `GET`
+**URL:** `http://localhost:8080/trips/rider/{riderId}`
+**Auth Required:** Yes
 
 #### Response — `200 OK`
 
 ```json
 [
   {
-    "id": 100,
+    "id": 3,
     "riderId": 1,
     "driverId": 5,
-    "pickupLocation": "123 Main St, Downtown",
-    "dropLocation": "456 Airport Rd, Terminal 2",
+    "pickupLocation": "Delhi",
+    "dropLocation": "Noida",
     "status": "COMPLETED",
-    "createdAt": "2026-06-22T18:00:00",
-    "updatedAt": "2026-06-22T18:45:00"
-  },
-  {
-    "id": 105,
-    "riderId": 1,
-    "driverId": null,
-    "pickupLocation": "Office Park A",
-    "dropLocation": "Central Station",
-    "status": "REQUESTED",
-    "createdAt": "2026-06-22T20:00:00",
-    "updatedAt": "2026-06-22T20:00:00"
+    "createdAt": "2026-06-25T18:00:00",
+    "updatedAt": "2026-06-25T18:45:00"
   }
 ]
 ```
@@ -776,31 +648,25 @@ Retrieve all trips associated with a specific rider.
 
 ### GET /trips/driver/{driverId}
 
-Retrieve all trips assigned to a specific driver.
+Retrieve all trips assigned to a driver.
 
-**Method:** `GET`  
-**URL:** `http://localhost:8083/trips/driver/{driverId}`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`
-
-#### Path Parameters
-
-| Parameter | Type | Description |
-|---|---|---|
-| `driverId` | Long | The driver's profile ID |
+**Method:** `GET`
+**URL:** `http://localhost:8080/trips/driver/{driverId}`
+**Auth Required:** Yes
 
 #### Response — `200 OK`
 
 ```json
 [
   {
-    "id": 100,
+    "id": 3,
     "riderId": 1,
     "driverId": 5,
-    "pickupLocation": "123 Main St, Downtown",
-    "dropLocation": "456 Airport Rd, Terminal 2",
+    "pickupLocation": "Delhi",
+    "dropLocation": "Noida",
     "status": "COMPLETED",
-    "createdAt": "2026-06-22T18:00:00",
-    "updatedAt": "2026-06-22T18:45:00"
+    "createdAt": "2026-06-25T18:00:00",
+    "updatedAt": "2026-06-25T18:45:00"
   }
 ]
 ```
@@ -809,18 +675,12 @@ Retrieve all trips assigned to a specific driver.
 
 ### PATCH /trips/{id}/assign-driver
 
-Assign a driver to an existing trip (dispatcher/matching operation).
+Assign a driver to a trip (manual dispatch / future matching service).
 
-**Method:** `PATCH`  
-**URL:** `http://localhost:8083/trips/{id}/assign-driver`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`  
+**Method:** `PATCH`
+**URL:** `http://localhost:8080/trips/{id}/assign-driver`
+**Auth Required:** Yes
 **Content-Type:** `application/json`
-
-#### Path Parameters
-
-| Parameter | Type | Description |
-|---|---|---|
-| `id` | Long | The trip ID to assign a driver to |
 
 #### Request Body
 
@@ -830,22 +690,23 @@ Assign a driver to an existing trip (dispatcher/matching operation).
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `driverId` | Long | Yes | ID of the driver to assign |
+#### Business Rules
+
+- Trip must be in `REQUESTED` status — throws `409 Conflict` otherwise
+- Trip must not already have a driver — throws `409 Conflict` otherwise
 
 #### Response — `200 OK`
 
 ```json
 {
-  "id": 100,
+  "id": 3,
   "riderId": 1,
   "driverId": 5,
-  "pickupLocation": "123 Main St, Downtown",
-  "dropLocation": "456 Airport Rd, Terminal 2",
+  "pickupLocation": "Delhi",
+  "dropLocation": "Noida",
   "status": "MATCHED",
-  "createdAt": "2026-06-22T20:00:00",
-  "updatedAt": "2026-06-22T20:05:00"
+  "createdAt": "2026-06-25T20:00:00",
+  "updatedAt": "2026-06-25T20:05:00"
 }
 ```
 
@@ -853,18 +714,12 @@ Assign a driver to an existing trip (dispatcher/matching operation).
 
 ### PATCH /trips/{id}/status
 
-Update the status of a trip (start, complete, or cancel).
+Update a trip's lifecycle status.
 
-**Method:** `PATCH`  
-**URL:** `http://localhost:8083/trips/{id}/status`  
-**Auth Required:** Yes — `Authorization: Bearer <token>`  
+**Method:** `PATCH`
+**URL:** `http://localhost:8080/trips/{id}/status`
+**Auth Required:** Yes
 **Content-Type:** `application/json`
-
-#### Path Parameters
-
-| Parameter | Type | Description |
-|---|---|---|
-| `id` | Long | The trip ID to update |
 
 #### Request Body
 
@@ -874,22 +729,30 @@ Update the status of a trip (start, complete, or cancel).
 }
 ```
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `status` | Enum | Yes | New trip status (see Enum Reference) |
+#### Valid Transitions
+
+| From | Allowed Next States |
+|---|---|
+| `REQUESTED` | `MATCHED`, `CANCELLED` |
+| `MATCHED` | `IN_PROGRESS`, `CANCELLED` |
+| `IN_PROGRESS` | `COMPLETED` |
+| `COMPLETED` | — (terminal) |
+| `CANCELLED` | — (terminal) |
+
+Invalid transitions return `409 Conflict`.
 
 #### Response — `200 OK`
 
 ```json
 {
-  "id": 100,
+  "id": 3,
   "riderId": 1,
   "driverId": 5,
-  "pickupLocation": "123 Main St, Downtown",
-  "dropLocation": "456 Airport Rd, Terminal 2",
+  "pickupLocation": "Delhi",
+  "dropLocation": "Noida",
   "status": "IN_PROGRESS",
-  "createdAt": "2026-06-22T20:00:00",
-  "updatedAt": "2026-06-22T20:10:00"
+  "createdAt": "2026-06-25T20:00:00",
+  "updatedAt": "2026-06-25T20:10:00"
 }
 ```
 
@@ -908,57 +771,59 @@ Update the status of a trip (start, complete, or cancel).
 
 | Value | Description |
 |---|---|
-| `PENDING` | Driver registered but not yet approved |
-| `ACTIVE` | Driver is approved and can accept trips |
-| `SUSPENDED` | Driver account has been suspended |
+| `PENDING` | Registered but not yet approved |
+| `ACTIVE` | Approved and can accept trips |
+| `SUSPENDED` | Account suspended |
 
 ### `Availability` — Driver Service
 
 | Value | Description |
 |---|---|
-| `ONLINE` | Driver is available and can accept new trips |
-| `OFFLINE` | Driver is not available |
-| `BUSY` | Driver is currently on a trip |
+| `ONLINE` | Available for new trips |
+| `OFFLINE` | Not available |
+| `BUSY` | Currently on a trip |
 
-### `VerificationStatus` — Driver Service (Vehicle)
+### `VerificationStatus` — Vehicle (Driver Service)
 
 | Value | Description |
 |---|---|
-| `PENDING` | Vehicle submitted but not yet reviewed |
-| `VERIFIED` | Vehicle has been approved |
-| `REJECTED` | Vehicle failed verification |
+| `PENDING` | Submitted but not reviewed |
+| `VERIFIED` | Approved |
+| `REJECTED` | Failed verification |
 
 ### `TripStatus` — Trip Service
 
-| Value | Description | Typical Next State |
+| Value | Description | Valid Next |
 |---|---|---|
-| `REQUESTED` | Trip created, awaiting driver | `MATCHED` or `CANCELLED` |
-| `MATCHED` | Driver assigned | `IN_PROGRESS` or `CANCELLED` |
-| `IN_PROGRESS` | Driver has picked up the rider | `COMPLETED` or `CANCELLED` |
-| `COMPLETED` | Trip successfully finished | Terminal state |
-| `CANCELLED` | Trip was cancelled | Terminal state |
+| `REQUESTED` | Trip created, awaiting driver | `MATCHED`, `CANCELLED` |
+| `MATCHED` | Driver assigned | `IN_PROGRESS`, `CANCELLED` |
+| `IN_PROGRESS` | Rider picked up | `COMPLETED` |
+| `COMPLETED` | Trip finished | Terminal |
+| `CANCELLED` | Trip cancelled | Terminal |
 
 ---
 
 ## Error Response Format
 
-All three services return a JSON error body on failure. The schema varies slightly by service:
+### User Service errors
 
-### User Service
+Plain message string — no structured wrapper:
 
 ```json
 {
-  "message": "User not found with id: 99"
+  "message": "Email already exists"
 }
 ```
 
-### Driver Service & Trip Service
+### Driver Service & Trip Service errors
+
+Structured `ErrorResponse`:
 
 ```json
 {
-  "message": "Driver not found",
+  "message": "Rider not found with id: 10",
   "status": 404,
-  "timestamp": "2026-06-22T20:00:00"
+  "timestamp": "2026-06-25T20:30:00"
 }
 ```
 
@@ -966,31 +831,43 @@ All three services return a JSON error body on failure. The schema varies slight
 |---|---|---|
 | `message` | String | Human-readable error description |
 | `status` | Integer | HTTP status code |
-| `timestamp` | LocalDateTime | ISO-8601 timestamp of the error |
+| `timestamp` | LocalDateTime | ISO-8601 error timestamp |
+
+### Gateway-level errors (JWT)
+
+```json
+{
+  "status": 401,
+  "error": "Unauthorized",
+  "message": "JWT token is missing or invalid"
+}
+```
 
 ---
 
 ## Quick Reference — All Endpoints
 
-| # | Method | URL | Service | Auth | HTTP Status | Description |
-|---|---|---|---|---|---|---|
-| 1 | `POST` | `http://localhost:8081/auth/register` | User | No | 200 | Register new user |
-| 2 | `POST` | `http://localhost:8081/auth/login` | User | No | 200 | Login and get JWT |
-| 3 | `GET` | `http://localhost:8081/users/{id}` | User | Yes | 200 | Get user by ID |
-| 4 | `PUT` | `http://localhost:8081/users/{id}` | User | Yes | 200 | Update user profile |
-| 5 | `GET` | `http://localhost:8081/users/by-email/{email}` | User | Yes | 200 | Get user by email |
-| 6 | `POST` | `http://localhost:8082/drivers` | Driver | Yes | 200 | Create driver profile |
-| 7 | `GET` | `http://localhost:8082/drivers/{id}` | Driver | Yes | 200 | Get driver by ID |
-| 8 | `GET` | `http://localhost:8082/drivers/{id}/availability` | Driver | Yes | 200 | Get driver availability |
-| 9 | `GET` | `http://localhost:8082/drivers/users/{userId}` | Driver | Yes | 200 | Get driver by user ID |
-| 10 | `PUT` | `http://localhost:8082/drivers/status` | Driver | Yes | 200 | Update driver status |
-| 11 | `PUT` | `http://localhost:8082/drivers/availability` | Driver | Yes | 200 | Update driver availability |
-| 12 | `POST` | `http://localhost:8082/vehicles` | Driver | Yes | 200 | Register new vehicle |
-| 13 | `GET` | `http://localhost:8082/vehicles/{id}` | Driver | Yes | 200 | Get vehicle by ID |
-| 14 | `PUT` | `http://localhost:8082/vehicles/{id}` | Driver | Yes | 200 | Update vehicle verification |
-| 15 | `POST` | `http://localhost:8083/trips` | Trip | Yes | 201 | Create trip request |
-| 16 | `GET` | `http://localhost:8083/trips/{id}` | Trip | Yes | 200 | Get trip by ID |
-| 17 | `GET` | `http://localhost:8083/trips/rider/{riderId}` | Trip | Yes | 200 | Get all trips by rider |
-| 18 | `GET` | `http://localhost:8083/trips/driver/{driverId}` | Trip | Yes | 200 | Get all trips by driver |
-| 19 | `PATCH` | `http://localhost:8083/trips/{id}/assign-driver` | Trip | Yes | 200 | Assign driver to trip |
-| 20 | `PATCH` | `http://localhost:8083/trips/{id}/status` | Trip | Yes | 200 | Update trip status |
+All URLs are via Gateway at `http://localhost:8080`.
+
+| # | Method | Path | Auth | Description |
+|---|---|---|---|---|
+| 1 | `POST` | `/auth/register` | No | Register new user |
+| 2 | `POST` | `/auth/login` | No | Login, get JWT |
+| 3 | `GET` | `/users/{id}` | Yes | Get user by ID |
+| 4 | `PUT` | `/users/{id}` | Yes | Update user profile |
+| 5 | `GET` | `/users/by-email/{email}` | Yes | Get user by email |
+| 6 | `POST` | `/drivers` | Yes | Create driver profile |
+| 7 | `GET` | `/drivers/{id}` | Yes | Get driver by ID |
+| 8 | `GET` | `/drivers/{id}/availability` | Yes | Get driver availability |
+| 9 | `GET` | `/drivers/users/{userId}` | Yes | Get driver by user ID |
+| 10 | `PUT` | `/drivers/status` | Yes | Update driver status |
+| 11 | `PUT` | `/drivers/availability` | Yes | Update driver availability |
+| 12 | `POST` | `/vehicles` | Yes | Register vehicle |
+| 13 | `GET` | `/vehicles/{id}` | Yes | Get vehicle by ID |
+| 14 | `PUT` | `/vehicles/{id}` | Yes | Update vehicle verification |
+| 15 | `POST` | `/trips` | Yes | Create trip (validates riderId) |
+| 16 | `GET` | `/trips/{id}` | Yes | Get trip by ID |
+| 17 | `GET` | `/trips/rider/{riderId}` | Yes | Get all trips by rider |
+| 18 | `GET` | `/trips/driver/{driverId}` | Yes | Get all trips by driver |
+| 19 | `PATCH` | `/trips/{id}/assign-driver` | Yes | Assign driver to trip |
+| 20 | `PATCH` | `/trips/{id}/status` | Yes | Update trip status |

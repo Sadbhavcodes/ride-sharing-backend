@@ -2,6 +2,7 @@ package com.rideshare.tripservice.exception;
 
 import com.rideshare.tripservice.dto.ErrorResponse;
 import org.springframework.http.HttpStatus;
+import com.rideshare.tripservice.exception.RiderNotFoundException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -14,6 +15,21 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(TripNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleTripNotFoundException(
             TripNotFoundException ex) {
+
+        ErrorResponse error = new ErrorResponse(
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value(),
+                LocalDateTime.now()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(error);
+    }
+
+    @ExceptionHandler(RiderNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleRiderNotFoundException(
+            RiderNotFoundException ex) {
 
         ErrorResponse error = new ErrorResponse(
                 ex.getMessage(),
