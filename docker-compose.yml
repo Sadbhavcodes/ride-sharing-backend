@@ -1,0 +1,207 @@
+services:
+  postgres-user:
+    image: postgres:17
+    container_name: postgres-user
+    environment:
+      POSTGRES_DB: rideshare_users
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-user-data:/var/lib/postgresql/data
+    networks:
+      - ride-share-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rideshare_users"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-driver:
+    image: postgres:17
+    container_name: postgres-driver
+    environment:
+      POSTGRES_DB: rideshare_drivers
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-driver-data:/var/lib/postgresql/data
+    networks:
+      - ride-share-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rideshare_drivers"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-trip:
+    image: postgres:17
+    container_name: postgres-trip
+    environment:
+      POSTGRES_DB: rideshare_trips
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres-trip-data:/var/lib/postgresql/data
+    networks:
+      - ride-share-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rideshare_trips"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  config-server:
+    build:
+      context: ./infrastructure/config-server
+    container_name: config-server
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./infrastructure/config-server/src/main/resources/config:/config
+    networks:
+      - ride-share-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8888/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  eureka-server:
+    build:
+      context: ./infrastructure/eureka-server
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+    depends_on:
+      config-server:
+        condition: service_healthy
+    networks:
+      - ride-share-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  gateway-server:
+    build:
+      context: ./infrastructure/gateway-server
+    container_name: gateway-server
+    ports:
+      - "8080:8080"
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+    depends_on:
+      config-server:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - ride-share-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  user-service:
+    build:
+      context: ./microservices/user-service
+    container_name: user-service
+    ports:
+      - "8081:8081"
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-user:5432/rideshare_users
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+    depends_on:
+      postgres-user:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - ride-share-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  driver-service:
+    build:
+      context: ./microservices/driver-service
+    container_name: driver-service
+    ports:
+      - "8082:8082"
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-driver:5432/rideshare_drivers
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+    depends_on:
+      postgres-driver:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - ride-share-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8082/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  trip-service:
+    build:
+      context: ./microservices/trip-service
+    container_name: trip-service
+    ports:
+      - "8083:8083"
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-trip:5432/rideshare_trips
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+    depends_on:
+      postgres-trip:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - ride-share-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8083/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  postgres-user-data:
+  postgres-driver-data:
+  postgres-trip-data:
+
+networks:
+  ride-share-network:
+
+# docker compose overrides are for docker networking environment where docker containers can run with docker
+# environment and without disturbing the applications actual local environment settings
+# this way we can run the project locally, on docker and later for production without changing anything
