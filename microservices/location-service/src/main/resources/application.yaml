@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: locationservice
+
+  config:
+    import: configserver:${CONFIG_SERVER_URL:http://localhost:8888}
