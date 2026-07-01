@@ -1,4 +1,4 @@
-package dto;
+package com.rideshare.locationservice.dto;
 
 public record NearestDriverRequest(
         Double longitude,

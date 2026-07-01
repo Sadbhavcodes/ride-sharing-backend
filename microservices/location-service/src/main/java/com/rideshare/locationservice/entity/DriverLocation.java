@@ -1,7 +1,8 @@
-package entity;
+package com.rideshare.locationservice.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.locationtech.jts.geom.Point;
 
 import java.time.LocalDateTime;
 
@@ -17,8 +18,8 @@ public class DriverLocation {
     @Column(nullable = false, unique = true)
     private Long driverId;
 
-    private Double longitude;
-    private Double latitude;
+    @Column(columnDefinition = "geography(Point, 4326)")
+    private Point location;
 
     private LocalDateTime updatedAt;
 
