@@ -3,12 +3,13 @@ package com.rideshare.tripservice.service;
 import com.rideshare.tripservice.client.DriverAvailability;
 import com.rideshare.tripservice.client.DriverAvailabilityDtoResponse;
 import com.rideshare.tripservice.client.DriverFeignClient;
+import com.rideshare.tripservice.client.MatchRequest;
+import com.rideshare.tripservice.client.MatchResponse;
+import com.rideshare.tripservice.client.MatchingFeignClient;
 import com.rideshare.tripservice.client.UpdateDriverAvailabilityRequest;
 import com.rideshare.tripservice.client.UserDto;
 import com.rideshare.tripservice.client.UserFeignClient;
-import com.rideshare.tripservice.dto.AssignDriverRequest;
-import com.rideshare.tripservice.dto.CreateTripRequest;
-import com.rideshare.tripservice.dto.UpdateTripStatusRequest;
+import com.rideshare.tripservice.dto.*;
 import com.rideshare.tripservice.entity.Trip;
 import com.rideshare.tripservice.entity.TripStatus;
 import com.rideshare.tripservice.exception.TripNotFoundException;
@@ -23,13 +24,16 @@ public class TripService {
     private final TripRepository tripRepository;
     private final UserFeignClient userFeignClient;
     private final DriverFeignClient driverFeignClient;
+    private final MatchingFeignClient matchingFeignClient;
 
     public TripService(TripRepository tripRepository,
                        UserFeignClient userFeignClient,
-                       DriverFeignClient driverFeignClient) {
+                       DriverFeignClient driverFeignClient,
+                       MatchingFeignClient matchingFeignClient) {
         this.tripRepository = tripRepository;
         this.userFeignClient = userFeignClient;
         this.driverFeignClient = driverFeignClient;
+        this.matchingFeignClient = matchingFeignClient;
     }
 
     public Trip createTrip(CreateTripRequest request) {
@@ -38,11 +42,32 @@ public class TripService {
 
         Trip trip = new Trip();
         trip.setRiderId(rider.getId());
-        trip.setPickupLocation(request.pickUpLocation());
-        trip.setDropLocation(request.dropLocation());
+        trip.setPickupLatitude(request.pickup().latitude());
+        trip.setPickupLongitude(request.pickup().longitude());
+        trip.setDestinationLatitude(request.destination().latitude());
+        trip.setDestinationLongitude(request.destination().longitude());
         trip.setStatus(TripStatus.REQUESTED);
 
-        return tripRepository.save(trip);
+        Trip savedTrip = tripRepository.save(trip);
+
+        // Request matching-service to find a nearby driver
+        MatchRequest matchRequest = new MatchRequest(
+                savedTrip.getId(),
+                savedTrip.getRiderId(),
+                request.pickup(),
+                request.destination()
+        );
+        
+        try {
+            MatchResponse response = matchingFeignClient.findMatch(matchRequest);
+            savedTrip.setDriverId(response.driverId());
+            savedTrip.setStatus(TripStatus.MATCHED);
+            return tripRepository.save(savedTrip);
+        } catch (Exception e) {
+            // Scenario 4: Matching failed (e.g. timeout / no drivers available)
+            savedTrip.setStatus(TripStatus.CANCELLED);
+            return tripRepository.save(savedTrip);
+        }
     }
 
     public Trip getTripById(Long id) {
@@ -105,11 +130,7 @@ public class TripService {
                 request.status() == TripStatus.CANCELLED) {
 
             if (trip.getDriverId() != null) {
-                UpdateDriverAvailabilityRequest freeRequest =
-                        new UpdateDriverAvailabilityRequest();
-                freeRequest.setId(trip.getDriverId());
-                freeRequest.setAvailability(DriverAvailability.ONLINE);
-                driverFeignClient.updateDriverAvailability(freeRequest);
+                driverFeignClient.releaseDriver(trip.getDriverId());
             }
         }
 
@@ -141,7 +162,8 @@ public class TripService {
             }
 
             case IN_PROGRESS -> {
-                if (next != TripStatus.COMPLETED) {
+                if (next != TripStatus.COMPLETED &&
+                        next != TripStatus.CANCELLED) {
                     throw new IllegalStateException("Invalid transition");
                 }
             }
@@ -149,5 +171,25 @@ public class TripService {
             case COMPLETED, CANCELLED ->
                     throw new IllegalStateException("Trip is already finished");
         }
+    }
+    
+    public CancelTripResponse cancelTrip(Long id){
+        Trip trip = findTripById(id);
+
+        validateTransition(trip.getStatus(), TripStatus.CANCELLED);
+
+        if(trip.getStatus().equals(TripStatus.REQUESTED)){
+            // Scenario 1: No driver assigned yet
+            trip.setStatus(TripStatus.CANCELLED);
+        } else if(trip.getStatus().equals(TripStatus.MATCHED) || trip.getStatus().equals(TripStatus.IN_PROGRESS)){
+            // Scenario 2: Driver is already assigned, we must release them first
+            if (trip.getDriverId() != null) {
+                driverFeignClient.releaseDriver(trip.getDriverId());
+            }
+            trip.setStatus(TripStatus.CANCELLED);
+        }
+
+        tripRepository.save(trip);
+        return new CancelTripResponse(trip.getId());
     }
 }

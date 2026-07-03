@@ -1,10 +1,12 @@
 package com.rideshare.tripservice.controller;
 
 import com.rideshare.tripservice.dto.AssignDriverRequest;
+import com.rideshare.tripservice.dto.CancelTripResponse;
 import com.rideshare.tripservice.dto.CreateTripRequest;
 import com.rideshare.tripservice.dto.UpdateTripStatusRequest;
 import com.rideshare.tripservice.entity.Trip;
 import com.rideshare.tripservice.service.TripService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,7 +23,7 @@ public class TripController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Trip createTrip(@RequestBody CreateTripRequest request){
+    public Trip createTrip(@Valid @RequestBody CreateTripRequest request){
         return tripService.createTrip(request);
     }
 
@@ -50,5 +52,10 @@ public class TripController {
     public Trip updateTripStatus
             (@PathVariable Long id, @RequestBody UpdateTripStatusRequest request){
         return tripService.updateTripStatus(id,request);
+    }
+
+    @PostMapping("/{id}/cancel")
+    public CancelTripResponse cancelTrip(@PathVariable Long id){
+
     }
 }

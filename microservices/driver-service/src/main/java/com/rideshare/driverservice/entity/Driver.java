@@ -24,4 +24,7 @@ public class Driver {
 
     @Column(nullable = false)
     private double rating = 0.0;
+
+    @Version
+    private Long version;
 }

@@ -18,8 +18,11 @@ public class Trip {
     private Long riderId;
     private Long driverId;
 
-    private String pickupLocation;
-    private String dropLocation;
+    private Double pickupLatitude;
+    private Double pickupLongitude;
+
+    private Double destinationLatitude;
+    private Double destinationLongitude;
 
     @Enumerated(value = EnumType.STRING)
     private TripStatus status;

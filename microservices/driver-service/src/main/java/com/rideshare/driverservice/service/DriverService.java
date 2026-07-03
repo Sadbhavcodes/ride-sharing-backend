@@ -13,6 +13,9 @@ import com.rideshare.driverservice.exception.DriverAlreadyExistsException;
 import com.rideshare.driverservice.exception.DriverNotFoundException;
 import com.rideshare.driverservice.repository.DriverRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 public class DriverService {
@@ -64,6 +67,41 @@ public class DriverService {
     public Driver updateDriverAvailability(UpdateDriverAvailabilityRequest request){
         Driver driver = findDriverById(request.id());
         driver.setAvailability(request.availability());
+        return driverRepository.save(driver);
+    }
+
+    public List<Driver> getAvailableDriversByIds(List<Long> driverIds) {
+        return driverRepository.findByIdInAndStatusAndAvailability(
+                driverIds, Status.ACTIVE, Availability.ONLINE
+        );
+    }
+
+    /**
+     * Atomically claim a driver for a trip: read + check ONLINE + set BUSY
+     * all in one transaction. If another thread claimed this driver between
+     * our read and write, @Version causes OptimisticLockException.
+     */
+    @Transactional
+    public Driver claimDriver(Long driverId) {
+        Driver driver = findDriverById(driverId);
+
+        if (driver.getAvailability() != Availability.ONLINE) {
+            throw new IllegalStateException(
+                    "Driver " + driverId + " is not ONLINE, current: " + driver.getAvailability());
+        }
+
+        driver.setAvailability(Availability.BUSY);
+        return driverRepository.save(driver);
+        // If version changed since our read → OptimisticLockException thrown here
+    }
+
+    /**
+     * Release a driver back to ONLINE (used on trip cancel/complete).
+     */
+    @Transactional
+    public Driver releaseDriver(Long driverId) {
+        Driver driver = findDriverById(driverId);
+        driver.setAvailability(Availability.ONLINE);
         return driverRepository.save(driver);
     }
 

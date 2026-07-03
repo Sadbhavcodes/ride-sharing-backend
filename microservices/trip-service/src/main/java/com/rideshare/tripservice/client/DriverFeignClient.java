@@ -15,4 +15,7 @@ public interface DriverFeignClient {
     @PutMapping("/drivers/availability")
     DriverAvailabilityDtoResponse updateDriverAvailability(
             @RequestBody UpdateDriverAvailabilityRequest request);
+
+    @org.springframework.web.bind.annotation.PostMapping("/drivers/{id}/release")
+    void releaseDriver(@PathVariable("id") Long driverId);
 }

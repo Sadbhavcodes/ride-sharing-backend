@@ -40,7 +40,7 @@ public class DriverLocationController {
         return driverLocationService.findNearbyDrivers(
                 request.latitude(),
                 request.longitude(),
-                5000 // default 5km radius in meters
+                request.radius() != null ? request.radius() : 5000.0 // default 5km
         );
     }
 

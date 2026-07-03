@@ -14,4 +14,9 @@ public interface DriverRepository extends JpaRepository<Driver, Long> {
             Status status,
             Availability availability
     );
+    List<Driver> findByIdInAndStatusAndAvailability(
+            List<Long> ids,
+            Status status,
+            Availability availability
+    );
 }
