@@ -1,9 +1,9 @@
-# Ride-Sharing Backend â€” API Reference
+# Ride-Sharing Backend — API Reference
 
 > **Updated:** June 25, 2026
-> **Architecture:** Spring Boot Microservices Â· PostgreSQL Â· Spring Cloud Config Â· Eureka Â· API Gateway
+> **Architecture:** Spring Boot Microservices · PostgreSQL · Spring Cloud Config · Eureka · API Gateway
 > **Single Entry Point:** `http://localhost:8080` (API Gateway)
-> **Authentication:** JWT Bearer Token â€” validated centrally at the Gateway. All requests must include `Authorization: Bearer <token>` except `/auth/register` and `/auth/login`.
+> **Authentication:** JWT Bearer Token — validated centrally at the Gateway. All requests must include `Authorization: Bearer <token>` except `/auth/register` and `/auth/login`.
 
 ---
 
@@ -24,7 +24,7 @@
 
 | Service | App Name | Internal Port | Public via Gateway |
 |---|---|---|---|
-| API Gateway | `gatewayserver` | `8080` | â€” (is the entry point) |
+| API Gateway | `gatewayserver` | `8080` | — (is the entry point) |
 | Config Server | `config-server` | `8888` | Not exposed |
 | Eureka Server | `eurekaserver` | `8761` | Not exposed |
 | User Service | `userservice` | `8081` | `http://localhost:8080/auth/**`, `/users/**` |
@@ -43,17 +43,17 @@
 
 ```
 POST http://localhost:8080/auth/login
-  â†’ Gateway permits (public route)
-  â†’ user-service issues JWT
+  → Gateway permits (public route)
+  → user-service issues JWT
 
 All other requests:
-  â†’ Gateway intercepts
-  â†’ Validates JWT signature against shared secret
-  â†’ On valid: forwards request to target service
-  â†’ On invalid/missing: returns 401 immediately (request never reaches service)
+  → Gateway intercepts
+  → Validates JWT signature against shared secret
+  → On valid: forwards request to target service
+  → On invalid/missing: returns 401 immediately (request never reaches service)
 ```
 
-Inter-service communication (Feign) goes **directly between services via Eureka** â€” it does not pass through the gateway and requires no token.
+Inter-service communication (Feign) goes **directly between services via Eureka** — it does not pass through the gateway and requires no token.
 
 ---
 
@@ -93,7 +93,7 @@ Register a new user (rider or driver).
 | `phoneNumber` | String | Yes | Contact number |
 | `role` | Enum | Yes | `RIDER` or `DRIVER` |
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -105,7 +105,7 @@ Register a new user (rider or driver).
 }
 ```
 
-#### Response â€” `400 Bad Request`
+#### Response — `400 Bad Request`
 
 ```json
 {
@@ -133,7 +133,7 @@ Authenticate and receive a JWT token.
 }
 ```
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -141,7 +141,7 @@ Authenticate and receive a JWT token.
 }
 ```
 
-#### Response â€” `400 Bad Request`
+#### Response — `400 Bad Request`
 
 ```json
 {
@@ -165,7 +165,7 @@ Retrieve a user profile by ID.
 |---|---|---|
 | `id` | Long | User ID |
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -177,7 +177,7 @@ Retrieve a user profile by ID.
 }
 ```
 
-#### Response â€” `404 Not Found`
+#### Response — `404 Not Found`
 
 ```json
 {
@@ -205,7 +205,7 @@ Update username and/or email.
 }
 ```
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -227,7 +227,7 @@ Look up a user by email (used internally by Feign clients).
 **URL:** `http://localhost:8080/users/by-email/{email}`
 **Auth Required:** Yes
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -266,7 +266,7 @@ Create a driver profile by linking a user to a vehicle.
 }
 ```
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -289,7 +289,7 @@ Retrieve a driver profile by driver ID.
 **URL:** `http://localhost:8080/drivers/{id}`
 **Auth Required:** Yes
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -302,7 +302,7 @@ Retrieve a driver profile by driver ID.
 }
 ```
 
-#### Response â€” `404 Not Found`
+#### Response — `404 Not Found`
 
 ```json
 {
@@ -322,7 +322,7 @@ Get a driver's current availability without fetching the full profile.
 **URL:** `http://localhost:8080/drivers/{id}/availability`
 **Auth Required:** Yes
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -341,7 +341,7 @@ Retrieve a driver profile using the linked user's ID.
 **URL:** `http://localhost:8080/drivers/users/{userId}`
 **Auth Required:** Yes
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -374,7 +374,7 @@ Update a driver's account status (activate / suspend).
 }
 ```
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -407,7 +407,7 @@ Toggle a driver's real-time availability.
 }
 ```
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -442,7 +442,7 @@ Register a new vehicle.
 }
 ```
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -465,7 +465,7 @@ Retrieve a vehicle by ID.
 **URL:** `http://localhost:8080/vehicles/{id}`
 **Auth Required:** Yes
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -498,7 +498,7 @@ Update a vehicle's verification status (admin operation).
 }
 ```
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -545,7 +545,7 @@ Create a new trip request from a rider.
 | `pickUpLocation` | String | Yes | Pickup address or location name |
 | `dropLocation` | String | Yes | Drop-off address or location name |
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -568,10 +568,10 @@ Create a new trip request from a rider.
 | `pickupLocation` | String | Pickup location |
 | `dropLocation` | String | Drop-off location |
 | `status` | Enum | Always `REQUESTED` on creation |
-| `createdAt` | LocalDateTime | ISO-8601 â€” auto-set on insert |
-| `updatedAt` | LocalDateTime | ISO-8601 â€” auto-set on insert and every update |
+| `createdAt` | LocalDateTime | ISO-8601 — auto-set on insert |
+| `updatedAt` | LocalDateTime | ISO-8601 — auto-set on insert and every update |
 
-#### Response â€” `404 Not Found` (invalid riderId)
+#### Response — `404 Not Found` (invalid riderId)
 
 ```json
 {
@@ -582,7 +582,7 @@ Create a new trip request from a rider.
 ```
 
 > **NOTE:**
-> `riderId` is validated via a Feign call to `user-service` before the trip is saved. If the user does not exist, the request fails with `404` â€” not `500`.
+> `riderId` is validated via a Feign call to `user-service` before the trip is saved. If the user does not exist, the request fails with `404` — not `500`.
 
 ---
 
@@ -594,7 +594,7 @@ Retrieve a single trip by ID.
 **URL:** `http://localhost:8080/trips/{id}`
 **Auth Required:** Yes
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -609,7 +609,7 @@ Retrieve a single trip by ID.
 }
 ```
 
-#### Response â€” `404 Not Found`
+#### Response — `404 Not Found`
 
 ```json
 {
@@ -629,7 +629,7 @@ Retrieve all trips for a rider.
 **URL:** `http://localhost:8080/trips/rider/{riderId}`
 **Auth Required:** Yes
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 [
@@ -656,7 +656,7 @@ Retrieve all trips assigned to a driver.
 **URL:** `http://localhost:8080/trips/driver/{driverId}`
 **Auth Required:** Yes
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 [
@@ -694,10 +694,10 @@ Assign a driver to a trip (manual dispatch / future matching service).
 
 #### Business Rules
 
-- Trip must be in `REQUESTED` status â€” throws `409 Conflict` otherwise
-- Trip must not already have a driver â€” throws `409 Conflict` otherwise
+- Trip must be in `REQUESTED` status — throws `409 Conflict` otherwise
+- Trip must not already have a driver — throws `409 Conflict` otherwise
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -738,12 +738,12 @@ Update a trip's lifecycle status.
 | `REQUESTED` | `MATCHED`, `CANCELLED` |
 | `MATCHED` | `IN_PROGRESS`, `CANCELLED` |
 | `IN_PROGRESS` | `COMPLETED` |
-| `COMPLETED` | â€” (terminal) |
-| `CANCELLED` | â€” (terminal) |
+| `COMPLETED` | — (terminal) |
+| `CANCELLED` | — (terminal) |
 
 Invalid transitions return `409 Conflict`.
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -768,7 +768,7 @@ Cancel a trip (handles REQUESTED and MATCHED state gracefully).
 **URL:** `http://localhost:8080/trips/{id}/cancel`
 **Auth Required:** Yes
 
-#### Response â€” `200 OK`
+#### Response — `200 OK`
 
 ```json
 {
@@ -838,14 +838,14 @@ Orchestrates the rider-to-driver matching algorithm.
 
 ## Enum Reference
 
-### `Role` â€” User Service
+### `Role` — User Service
 
 | Value | Description |
 |---|---|
 | `RIDER` | A customer who books rides |
 | `DRIVER` | A driver who provides rides |
 
-### `Status` â€” Driver Service
+### `Status` — Driver Service
 
 | Value | Description |
 |---|---|
@@ -853,7 +853,7 @@ Orchestrates the rider-to-driver matching algorithm.
 | `ACTIVE` | Approved and can accept trips |
 | `SUSPENDED` | Account suspended |
 
-### `Availability` â€” Driver Service
+### `Availability` — Driver Service
 
 | Value | Description |
 |---|---|
@@ -861,7 +861,7 @@ Orchestrates the rider-to-driver matching algorithm.
 | `OFFLINE` | Not available |
 | `BUSY` | Currently on a trip |
 
-### `VerificationStatus` â€” Vehicle (Driver Service)
+### `VerificationStatus` — Vehicle (Driver Service)
 
 | Value | Description |
 |---|---|
@@ -869,7 +869,7 @@ Orchestrates the rider-to-driver matching algorithm.
 | `VERIFIED` | Approved |
 | `REJECTED` | Failed verification |
 
-### `TripStatus` â€” Trip Service
+### `TripStatus` — Trip Service
 
 | Value | Description | Valid Next |
 |---|---|---|
@@ -885,7 +885,7 @@ Orchestrates the rider-to-driver matching algorithm.
 
 ### User Service errors
 
-Plain message string â€” no structured wrapper:
+Plain message string — no structured wrapper:
 
 ```json
 {
@@ -923,7 +923,7 @@ Structured `ErrorResponse`:
 
 ---
 
-## Quick Reference â€” All Endpoints
+## Quick Reference — All Endpoints
 
 All URLs are via Gateway at `http://localhost:8080`.
 

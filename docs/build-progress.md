@@ -1,8 +1,8 @@
-# Ride-Sharing Backend â€” Build Progress Log
+# Ride-Sharing Backend — Build Progress Log
 
 > **Project:** Ride-Sharing Microservices Backend
-> **Stack:** Java 21 Â· Spring Boot 3 Â· PostgreSQL Â· Spring Cloud (Config, Eureka, Gateway)
-> **Last Updated:** June 25, 2026
+> **Stack:** Java 21 · Spring Boot 3 · PostgreSQL · Spring Cloud (Config, Eureka, Gateway)
+> **Last Updated:** July 03, 2026
 > **Repo:** `e:\Projects\ride-sharing-backend`
 
 ---
@@ -17,21 +17,24 @@ This document tracks every completed phase, sprint, and architectural decision f
 
 | Layer | Component | Status |
 |---|---|---|
-| Infrastructure | Config Server | âœ… Complete |
-| Infrastructure | Eureka Server | âœ… Complete |
-| Infrastructure | API Gateway (JWT) | âœ… Complete |
-| Microservice | User Service | âœ… Complete |
-| Microservice | Driver Service | âœ… Complete |
-| Microservice | Trip Service | âœ… Complete |
-| Database | PostgreSQL (x3) | âœ… Complete |
-| Cross-service | Feign (trip â†’ user) | âœ… Working |
-| Cross-service | JWT centralized at gateway | âœ… Complete |
-| Next | Location Service | ðŸ”œ Phase 5 |
-| Next | Matching Service | ðŸ”œ Phase 6 |
+| Infrastructure | Config Server | ✅ Complete |
+| Infrastructure | Eureka Server | ✅ Complete |
+| Infrastructure | API Gateway (JWT) | ✅ Complete |
+| Microservice | User Service | ✅ Complete |
+| Microservice | Driver Service | ✅ Complete |
+| Microservice | Trip Service | ✅ Complete |
+| Database | PostgreSQL (x3) | ✅ Complete |
+| Cross-service | Feign (trip → user) | ✅ Working |
+| Cross-service | JWT centralized at gateway | ✅ Complete |
+| Microservice | Location Service | ✅ Complete |
+| Microservice | Matching Service | ✅ Complete |
+| Deployment | Dockerization | ✅ Complete |
+| Deployment | AWS ECR & EC2 | ✅ Complete |
+| Next | Notification Service | 🔜 Phase 7 |
 
 ---
 
-## Phase 0 â€” Foundations âœ… Complete
+## Phase 0 — Foundations ✅ Complete
 
 **Theme:** Environment setup, PostgreSQL, JWT fundamentals
 
@@ -50,50 +53,50 @@ This document tracks every completed phase, sprint, and architectural decision f
 
 ```
 ride-sharing-backend/
-â”œâ”€â”€ microservices/
-â”‚   â”œâ”€â”€ user-service/
-â”‚   â”œâ”€â”€ driver-service/
-â”‚   â””â”€â”€ trip-service/
-â”œâ”€â”€ infrastructure/
-â”‚   â”œâ”€â”€ config-server/
-â”‚   â”œâ”€â”€ eureka-server/
-â”‚   â””â”€â”€ gateway-server/
-â””â”€â”€ docs/
+├── microservices/
+│   ├── user-service/
+│   ├── driver-service/
+│   └── trip-service/
+├── infrastructure/
+│   ├── config-server/
+│   ├── eureka-server/
+│   └── gateway-server/
+└── docs/
 ```
 
 ### Exit criteria met
-- âœ… Entities can be persisted and retrieved via JPA
-- âœ… JWT can be issued and validated
-- âœ… Repo skeleton committed to Git
+- ✅ Entities can be persisted and retrieved via JPA
+- ✅ JWT can be issued and validated
+- ✅ Repo skeleton committed to Git
 
 ---
 
-## Phase 1 â€” Core Services âœ… Complete
+## Phase 1 — Core Services ✅ Complete
 
-**Theme:** Business logic â€” three independently runnable services, each with own DB
+**Theme:** Business logic — three independently runnable services, each with own DB
 
-### Sprint A â€” PostgreSQL + JPA âœ… Done
+### Sprint A — PostgreSQL + JPA ✅ Done
 
 - Entities, repositories, `@GeneratedValue`, `@Enumerated`
 - Spring Data JPA `findById`, `findByEmail`, `existsByEmail`, custom queries
 - `ddl-auto: update` for local development
 - PostgreSQL type mapping (String enums via `EnumType.STRING`)
 
-### Sprint B â€” JWT Auth âœ… Done
+### Sprint B — JWT Auth ✅ Done
 
 - Token issuance: `user-service` generates JWTs on login using JJWT library
 - Token signing: HMAC-SHA256 with shared secret
 - BCrypt password hashing via `PasswordEncoder`
-- Auth filter chain (later centralized to gateway â€” see Phase 4)
+- Auth filter chain (later centralized to gateway — see Phase 4)
 
 ---
 
-### 1.1 User Service âœ… Complete
+### 1.1 User Service ✅ Complete
 
 **Port:** 8081 | **DB:** `rideshare_users`
 
 **Entities:**
-- `User` â€” id, username, email, password (BCrypt hashed), phoneNumber, role (RIDER/DRIVER)
+- `User` — id, username, email, password (BCrypt hashed), phoneNumber, role (RIDER/DRIVER)
 
 **Endpoints built:**
 | Method | Path | Description |
@@ -105,25 +108,25 @@ ride-sharing-backend/
 | `GET` | `/users/by-email/{email}` | Look up user by email |
 
 **Services built:**
-- `AuthService` â€” register (email uniqueness check, password encode, save) + login (password verify, token generate)
-- `UserServices` â€” getUser, updateUser, getUserByEmail
-- `JwtService` â€” `generateToken(email)` only (validation moved to gateway)
+- `AuthService` — register (email uniqueness check, password encode, save) + login (password verify, token generate)
+- `UserServices` — getUser, updateUser, getUserByEmail
+- `JwtService` — `generateToken(email)` only (validation moved to gateway)
 
 **Architecture decisions:**
 - User service is the **sole JWT issuer** in the system
-- `SecurityConfig` simplified to `permitAll()` â€” gateway handles all auth enforcement
+- `SecurityConfig` simplified to `permitAll()` — gateway handles all auth enforcement
 - `JwtAuthenticationFilter` and `CustomUserDetailService` removed (were validating tokens redundantly)
-- `JwtService` keeps only `generateToken()` â€” `extractEmail()` and `isTokenValid()` removed
+- `JwtService` keeps only `generateToken()` — `extractEmail()` and `isTokenValid()` removed
 
 ---
 
-### 1.2 Driver Service âœ… Complete
+### 1.2 Driver Service ✅ Complete
 
 **Port:** 8082 | **DB:** `rideshare_drivers`
 
 **Entities:**
-- `Driver` â€” id, userId (FK to user-service by ID reference), vehicleId, availability (ONLINE/OFFLINE/BUSY), status (PENDING/ACTIVE/SUSPENDED), rating
-- `Vehicle` â€” id, plateNumber, make, model, color, verificationStatus (PENDING/VERIFIED/REJECTED)
+- `Driver` — id, userId (FK to user-service by ID reference), vehicleId, availability (ONLINE/OFFLINE/BUSY), status (PENDING/ACTIVE/SUSPENDED), rating
+- `Vehicle` — id, plateNumber, make, model, color, verificationStatus (PENDING/VERIFIED/REJECTED)
 
 **Endpoints built:**
 | Method | Path | Description |
@@ -140,26 +143,26 @@ ride-sharing-backend/
 
 **DTOs:**
 - `CreateDriverRequest`, `UpdateDriverStatusRequest`, `UpdateDriverAvailabilityRequest`
-- `DriverAvailabilityResponse` â€” lean DTO (driverId + availability only)
+- `DriverAvailabilityResponse` — lean DTO (driverId + availability only)
 
 **Exception handling:**
 - `GlobalExceptionHandler` with `ErrorResponse` (message, status, timestamp)
-- `DriverNotFoundException` â†’ 404
-- `IllegalStateException` â†’ 409
+- `DriverNotFoundException` → 404
+- `IllegalStateException` → 409
 
 **Architecture decisions:**
-- Driver service does **not** own user data â€” references `userId` by Long ID only, never calls user-service
+- Driver service does **not** own user data — references `userId` by Long ID only, never calls user-service
 - JWT validation code fully removed (was redundant once gateway is in place)
-- No Spring Security dependency â€” zero auth overhead in this service
+- No Spring Security dependency — zero auth overhead in this service
 
 ---
 
-### 1.3 Trip Service âœ… Complete
+### 1.3 Trip Service ✅ Complete
 
 **Port:** 8083 | **DB:** `rideshare_trips`
 
 **Entities:**
-- `Trip` â€” id, riderId, driverId (nullable), pickupLocation, dropLocation, status (TripStatus enum), createdAt, updatedAt
+- `Trip` — id, riderId, driverId (nullable), pickupLocation, dropLocation, status (TripStatus enum), createdAt, updatedAt
 
 **Endpoints built:**
 | Method | Path | Description |
@@ -173,33 +176,33 @@ ride-sharing-backend/
 
 **Trip lifecycle state machine:**
 ```
-REQUESTED â†’ MATCHED â†’ IN_PROGRESS â†’ COMPLETED
-     â†“           â†“
+REQUESTED → MATCHED → IN_PROGRESS → COMPLETED
+     ↓           ↓
   CANCELLED   CANCELLED
 ```
 
 **Cross-service integration:**
-- `UserFeignClient` â€” Feign call to `user-service` to validate `riderId` on trip creation
-- `FeignClientErrorDecoder` â€” intercepts 404 from user-service, throws `RiderNotFoundException`
-- Service discovery via Eureka: `@FeignClient(name = "userservice")` â€” no hardcoded URLs
+- `UserFeignClient` — Feign call to `user-service` to validate `riderId` on trip creation
+- `FeignClientErrorDecoder` — intercepts 404 from user-service, throws `RiderNotFoundException`
+- Service discovery via Eureka: `@FeignClient(name = "userservice")` — no hardcoded URLs
 
 **Exception handling:**
-- `TripNotFoundException` â†’ 404
-- `RiderNotFoundException` â†’ 404 (invalid riderId on create)
-- `IllegalStateException` â†’ 409 (invalid state transition, driver already assigned)
-- Generic `Exception` catch-all â†’ 500
+- `TripNotFoundException` → 404
+- `RiderNotFoundException` → 404 (invalid riderId on create)
+- `IllegalStateException` → 409 (invalid state transition, driver already assigned)
+- Generic `Exception` catch-all → 500
 
 **Bug fixes applied (June 25, 2026):**
-- `createdAt`/`updatedAt` were null â€” fixed with `@PrePersist` / `@PreUpdate` JPA lifecycle hooks
-- Invalid `riderId` returned 500 â€” fixed with `FeignClientErrorDecoder` + `RiderNotFoundException`
+- `createdAt`/`updatedAt` were null — fixed with `@PrePersist` / `@PreUpdate` JPA lifecycle hooks
+- Invalid `riderId` returned 500 — fixed with `FeignClientErrorDecoder` + `RiderNotFoundException`
 
 ---
 
-## Phase 2 â€” Config Server âœ… Complete
+## Phase 2 — Config Server ✅ Complete
 
 **Theme:** Centralized configuration for all services
 
-### Sprint C â€” Spring Cloud Config âœ… Done
+### Sprint C — Spring Cloud Config ✅ Done
 
 **What was done:**
 - Spring Cloud Config Server set up at port `8888`
@@ -215,51 +218,51 @@ REQUESTED â†’ MATCHED â†’ IN_PROGRESS â†’ COMPLETED
 | `eurekaserver.yaml` | Eureka | port, self-registration off |
 | `application.yaml` | Shared | Eureka client defaults |
 
-**Shared JWT secret** â€” `myVeryStrongSecretKeyForRideShareApplication2025` â€” single source of truth via Config Server, same value used by user-service (to sign) and gateway (to verify).
+**Shared JWT secret** — `myVeryStrongSecretKeyForRideShareApplication2025` — single source of truth via Config Server, same value used by user-service (to sign) and gateway (to verify).
 
 ### Exit criteria met
-- âœ… All services pull their config from Config Server on startup
-- âœ… JWT secret lives in one place â€” config server â€” not duplicated in individual `application.yaml` files
+- ✅ All services pull their config from Config Server on startup
+- ✅ JWT secret lives in one place — config server — not duplicated in individual `application.yaml` files
 
 ---
 
-## Phase 3 â€” Service Discovery (Eureka) âœ… Complete
+## Phase 3 — Service Discovery (Eureka) ✅ Complete
 
 **Theme:** Dynamic service registration and discovery
 
-### Sprint D â€” Eureka âœ… Done
+### Sprint D — Eureka ✅ Done
 
 **What was done:**
 - Eureka Server running at port `8761`
 - All services register themselves: `userservice`, `driverservice`, `tripservice`, `gatewayserver`
-- Feign client in trip-service uses `@FeignClient(name = "userservice")` â€” resolves to actual instance via Eureka, no hardcoded IPs
+- Feign client in trip-service uses `@FeignClient(name = "userservice")` — resolves to actual instance via Eureka, no hardcoded IPs
 
 **Startup order (dependency chain):**
 ```
 Config Server (8888)
-  â†’ Eureka Server (8761)
-    â†’ User Service (8081)
-    â†’ Driver Service (8082)
-    â†’ Trip Service (8083)
-      â†’ API Gateway (8080)
+  → Eureka Server (8761)
+    → User Service (8081)
+    → Driver Service (8082)
+    → Trip Service (8083)
+      → API Gateway (8080)
 ```
 
 ### Exit criteria met
-- âœ… All 4 services visible on Eureka dashboard at `http://localhost:8761`
-- âœ… Trip service resolves user-service by name, not hardcoded URL
-- âœ… Gateway routes by logical service name via `lb://USERSERVICE` etc.
+- ✅ All 4 services visible on Eureka dashboard at `http://localhost:8761`
+- ✅ Trip service resolves user-service by name, not hardcoded URL
+- ✅ Gateway routes by logical service name via `lb://USERSERVICE` etc.
 
 ---
 
-## Phase 4 â€” API Gateway (JWT Centralized) âœ… Complete
+## Phase 4 — API Gateway (JWT Centralized) ✅ Complete
 
 **Theme:** Single entry point + centralized authentication
 
-### Sprint E â€” Spring Cloud Gateway âœ… Done
+### Sprint E — Spring Cloud Gateway ✅ Done
 
 **What was done:**
 - API Gateway built using Spring Cloud Gateway (WebFlux/reactive)
-- Runs at port `8080` â€” single entry point for all client traffic
+- Runs at port `8080` — single entry point for all client traffic
 - Route definitions in `gatewayserver.yaml`:
 
 ```yaml
@@ -284,11 +287,11 @@ routes:
 - Custom reactive `GlobalFilter` (`JwtAuthenticationFilter`) intercepts every request
 - Public routes (`/auth/register`, `/auth/login`) bypass validation
 - All other routes: extract `Authorization: Bearer <token>`, verify signature using shared secret
-- Invalid/missing token â†’ `401 Unauthorized` before request reaches any service
+- Invalid/missing token → `401 Unauthorized` before request reaches any service
 
 **Gateway `JwtService`:**
 - Validates token signature only (`extractEmail` + `isTokenValid`)
-- Does **not** issue tokens â€” that stays in user-service
+- Does **not** issue tokens — that stays in user-service
 
 **Architecture refactor (gateway centralization):**
 
@@ -296,20 +299,71 @@ routes:
 |---|---|---|
 | `user-service` | Had `JwtAuthFilter` + `SecurityConfig` + `CustomUserDetailService` | `SecurityConfig` kept (for `PasswordEncoder` bean), JWT filter removed, `permitAll()` |
 | `driver-service` | Had full JWT validation stack | All JWT/security code removed |
-| `trip-service` | Had no security | No security added â€” gateway handles it |
+| `trip-service` | Had no security | No security added — gateway handles it |
 | Gateway | Didn't exist | Full JWT validation reactive filter |
 
 **Cross-service Feign communication:**
-- Feign calls go **directly between services via Eureka** â€” they bypass the gateway entirely
-- All services use `anyRequest().permitAll()` for internal traffic â€” no tokens needed on Feign calls
+- Feign calls go **directly between services via Eureka** — they bypass the gateway entirely
+- All services use `anyRequest().permitAll()` for internal traffic — no tokens needed on Feign calls
 - Zero double-validation, zero redundant DB hits from security filters
 
 ### Exit criteria met
-- âœ… All client traffic enters via `http://localhost:8080`
-- âœ… JWT validated once at gateway â€” microservices have zero auth code
-- âœ… `/auth/register` and `/auth/login` publicly accessible through gateway
-- âœ… Invalid token returns `401` at gateway â€” never reaches downstream services
-- âœ… trip-service â†’ user-service Feign calls work without tokens
+- ✅ All client traffic enters via `http://localhost:8080`
+- ✅ JWT validated once at gateway — microservices have zero auth code
+- ✅ `/auth/register` and `/auth/login` publicly accessible through gateway
+- ✅ Invalid token returns `401` at gateway — never reaches downstream services
+- ✅ trip-service → user-service Feign calls work without tokens
+
+---
+
+## Phase 5 — Location Service ✅ Complete
+
+**Theme:** Geospatial tracking and nearest driver discovery
+
+**What was done:**
+- Fixed build and corrupted Maven cache dependencies.
+- Implemented `findNearbyDrivers` feature in the `DriverLocationController` and service layer.
+- Added a delete endpoint for driver locations.
+- Integrated a standard `GlobalExceptionHandler` and custom exceptions (e.g., `DriverNotFoundException`) to ensure consistent error handling mirroring established patterns in other services.
+
+### Exit criteria met
+- ✅ Service builds and compiles successfully
+- ✅ Nearest driver discovery functional
+
+---
+
+## Phase 6 — Matching Service ✅ Complete
+
+**Theme:** Automated driver assignment and trip lifecycle management
+
+**What was done:**
+- Configured Spring Cloud and Eureka integration for the Matching Service.
+- Implemented the `cancelTrip` state machine for robust driver management.
+- Finalized Matching Service MVP integration.
+- Created comprehensive API and AI onboarding documentation to facilitate future development and system transparency.
+
+### Exit criteria met
+- ✅ Service successfully registered with Eureka
+- ✅ Trip cancellation state machine functional
+- ✅ API and AI documentation generated
+
+---
+
+## Phase 9 & 10 — Dockerization & AWS Deployment ✅ Complete
+
+**Theme:** Containerization and Cloud Deployment
+
+**What was done:**
+- Created multi-stage Docker builds for each service and server.
+- Built a `docker-compose.yml` for local building and orchestration.
+- Created a `docker-compose.prod.yml` that pulls pre-built multi-stage images directly from AWS Elastic Container Registry (ECR).
+- Successfully released all Docker images to AWS ECR.
+- Pulled images into an AWS EC2 instance (`t3.micro`) and ran them via `docker-compose.prod.yml`.
+- All services reported a healthy status (though they cannot all run concurrently on a `t3.micro` due to memory constraints).
+
+### Exit criteria met
+- ✅ Multi-stage Docker images successfully built and pushed to ECR
+- ✅ EC2 deployment successful and services show healthy status
 
 ---
 
@@ -318,14 +372,14 @@ routes:
 | Decision | Rationale |
 |---|---|
 | Monorepo structure | Easier cross-service context during development; all docs, configs, and services in one place |
-| User-service as sole JWT issuer | Single responsibility â€” one service creates identity tokens |
+| User-service as sole JWT issuer | Single responsibility — one service creates identity tokens |
 | Gateway as sole JWT validator | Eliminates duplicated validation logic across all microservices |
 | Services trust each other internally | Feign calls bypass gateway; `permitAll()` on all internal endpoints |
-| Per-service PostgreSQL databases | True service isolation â€” no shared schema, no cross-service DB queries |
+| Per-service PostgreSQL databases | True service isolation — no shared schema, no cross-service DB queries |
 | Feign over RestTemplate | Declarative, Eureka-aware, less boilerplate |
-| `FeignClientErrorDecoder` | Translates HTTP errors from Feign calls to domain exceptions â€” prevents 500s leaking through |
-| `@PrePersist`/`@PreUpdate` for timestamps | Auto-managed by JPA lifecycle â€” no manual wiring in service layer |
-| `IllegalStateException` â†’ 409 Conflict | Business rule violations are conflicts, not server errors |
+| `FeignClientErrorDecoder` | Translates HTTP errors from Feign calls to domain exceptions — prevents 500s leaking through |
+| `@PrePersist`/`@PreUpdate` for timestamps | Auto-managed by JPA lifecycle — no manual wiring in service layer |
+| `IllegalStateException` → 409 Conflict | Business rule violations are conflicts, not server errors |
 
 ---
 
@@ -334,7 +388,7 @@ routes:
 | Date | Service | Bug | Fix |
 |---|---|---|---|
 | June 25, 2026 | trip-service | `createdAt`/`updatedAt` always `null` | Added `@PrePersist` + `@PreUpdate` on `Trip` entity |
-| June 25, 2026 | trip-service | Invalid `riderId` returned `500 Internal Server Error` | Added `FeignClientErrorDecoder` + `RiderNotFoundException` â†’ returns `404` |
+| June 25, 2026 | trip-service | Invalid `riderId` returned `500 Internal Server Error` | Added `FeignClientErrorDecoder` + `RiderNotFoundException` → returns `404` |
 | June 24, 2026 | driver-service | JWT validation was redundant after gateway was built | Removed `JwtAuthFilter`, `SecurityConfig`, `CustomDriverDetailService` |
 | June 24, 2026 | user-service | JWT validation was redundant after gateway was built | Removed `JwtAuthenticationFilter`, `CustomUserDetailService`, trimmed `JwtService` |
 
@@ -346,15 +400,8 @@ Per the execution plan in `execution-system.md`:
 
 | Phase | Component | Status |
 |---|---|---|
-| Phase 5 | Location Service (PostGIS) | ðŸ”œ Not started |
-| Phase 6 | Matching Service | ðŸ”œ Not started |
-| Phase 7 | RabbitMQ + Notification Service | ðŸ”œ Not started |
-| Phase 8 | Payment Service | ðŸ”œ Not started |
-| Phase 9 | Dockerization | ðŸ”œ Not started |
-| Phase 10 | AWS Deployment + Monitoring | ðŸ”œ Not started |
-
-> **NOTE:**
-> `driverId` in a newly created trip is intentionally `null`. This is correct â€” driver assignment is the job of the **Matching Service** (Phase 6), which does not exist yet. The manual `PATCH /trips/{id}/assign-driver` endpoint exists as a placeholder for testing the trip lifecycle until matching is built.
+| Phase 7 | RabbitMQ + Notification Service | 🔜 Not started |
+| Phase 8 | Payment Service | 🔜 Not started |
 
 ---
 
@@ -363,7 +410,7 @@ Per the execution plan in `execution-system.md`:
 | File | Purpose |
 |---|---|
 | `api-reference.md` | Full REST API reference for all services (this project) |
-| `build-progress.md` | This file â€” phase/sprint completion log |
+| `build-progress.md` | This file — phase/sprint completion log |
 | `execution-system.md` | Master plan, phases, risk register, weekly rhythm |
 | `ride-sharing-onboarding-blueprint.md` | Original architecture blueprint and design decisions |
 | `tech-dependency-graph.md` | Service dependency graph |

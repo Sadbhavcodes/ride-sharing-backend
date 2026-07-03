@@ -1,4 +1,4 @@
-# Ride-Sharing Backend â€” AI Agent Onboarding Document
+# Ride-Sharing Backend — AI Agent Onboarding Document
 
 > **Purpose:** This document serves as a high-level "blackbox" architectural overview of the ride-sharing backend system. It is designed to be fed into LLM agents to provide immediate context on how the system is structured, what has been implemented so far, and the key architectural decisions made.
 
@@ -19,7 +19,7 @@ The project is a Spring Boot microservices architecture for a ride-sharing appli
 3. **`gatewayserver` (Port 8080):** API Gateway and central authentication hub. Validates JWTs before forwarding requests.
 4. **`user-service` (Port 8081):** Manages riders, drivers (as base users), and authentication (JWT generation).
 5. **`driver-service` (Port 8082):** Manages driver-specific profiles, vehicles, operational status (ACTIVE/SUSPENDED), and availability (ONLINE/OFFLINE/BUSY).
-6. **`trip-service` (Port 8083):** Manages the ride lifecycle (REQUESTED â†’ MATCHED â†’ IN_PROGRESS â†’ COMPLETED/CANCELLED). 
+6. **`trip-service` (Port 8083):** Manages the ride lifecycle (REQUESTED → MATCHED → IN_PROGRESS → COMPLETED/CANCELLED). 
 7. **`location-service` (Port 8084):** Uses PostGIS to store real-time driver coordinates and query nearby drivers using spatial SQL (`ST_DWithin`, `ST_Distance`).
 8. **`matching-service` (Port 8085):** Orchestrates the algorithm to pair a rider with the nearest available driver.
 
@@ -35,10 +35,10 @@ Authentication is centralized at the **API Gateway**.
 
 ### B. Inter-Service Communication
 Services communicate synchronously via **OpenFeign**.
-- `trip-service` â†’ `user-service` (Validate rider exists before trip creation)
-- `trip-service` â†’ `matching-service` (Trigger matching algorithm)
-- `matching-service` â†’ `location-service` (Find nearest drivers)
-- `matching-service` â†’ `driver-service` (Filter driver status/availability & claim driver)
+- `trip-service` → `user-service` (Validate rider exists before trip creation)
+- `trip-service` → `matching-service` (Trigger matching algorithm)
+- `matching-service` → `location-service` (Find nearest drivers)
+- `matching-service` → `driver-service` (Filter driver status/availability & claim driver)
 
 ### C. The Matching Algorithm (MVP)
 The matching logic is orchestrated by `matching-service`:
