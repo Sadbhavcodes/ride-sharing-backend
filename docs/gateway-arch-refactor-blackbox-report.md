@@ -1,4 +1,4 @@
-# Blackbox Change Report — Gateway Architecture Refactor
+# Blackbox Change Report â€” Gateway Architecture Refactor
 
 > **Purpose:** Full forensic record of changes made in this session.  
 > Used for deployment post-mortems, debugging, and audit trails.
@@ -20,7 +20,7 @@
 ## 2. Git Commit History at Time of Change
 
 ```
-3f850eb  2026-06-18  driver service jwt                           ← HEAD at change time
+3f850eb  2026-06-18  driver service jwt                           â† HEAD at change time
 8763aea  2026-06-17  DriverService vehicle endpoints
 715a8d0  2026-06-17  driver-service till controllers
 00eab08  2026-06-16  User service jwt auth
@@ -28,7 +28,7 @@
 7a4017b  2026-06-14  Initial project setup
 ```
 
-> [!IMPORTANT]
+> **IMPORTANT:**
 > HEAD at the time of this change was `3f850eb`.
 > All changes below are currently **UNCOMMITTED (working tree only)**.
 > If the service fails at deployment, compare working tree against this commit to isolate the regression.
@@ -41,7 +41,7 @@ The original `driver-service` JWT layer (committed at `3f850eb`) included both *
 
 The architecture has since been revised:
 
-- **`user-service`** is the sole token issuer — all JWTs are generated here on login.
+- **`user-service`** is the sole token issuer â€” all JWTs are generated here on login.
 - **API Gateway** will intercept every inbound request and validate the JWT before routing to any downstream service.
 - Individual microservices (`driver-service`, `trip-service`, future services) **do not need to issue tokens** and will eventually not need to validate them either (the gateway will forward a trusted identity header). For now, driver-service retains its validation stack as a defence-in-depth layer until the gateway is wired in.
 
@@ -58,18 +58,18 @@ The architecture has since been revised:
 ```
  M microservices/driver-service/src/main/java/com/rideshare/driverservice/service/JwtService.java
  M microservices/driver-service/src/main/resources/application.yaml
-?? microservices/trip-service/trip-service/src/main/java/com/rideshare/tripservice/dto/ErrorResponse.java           ← new file
-?? microservices/trip-service/trip-service/src/main/java/com/rideshare/tripservice/exception/GlobalExceptionHandler.java  ← new file
+?? microservices/trip-service/trip-service/src/main/java/com/rideshare/tripservice/dto/ErrorResponse.java           â† new file
+?? microservices/trip-service/trip-service/src/main/java/com/rideshare/tripservice/exception/GlobalExceptionHandler.java  â† new file
 ```
 
-> [!NOTE]
-> The `AM` entries in `git status` for other trip-service files are pre-existing staged files unrelated to this session — they were already in the working tree before this session began and were not touched.
+> **NOTE:**
+> The `AM` entries in `git status` for other trip-service files are pre-existing staged files unrelated to this session â€” they were already in the working tree before this session began and were not touched.
 
 ---
 
 ## 5. Exact Diffs
 
-### 5.1 `driver-service` — `service/JwtService.java` — Issuing Logic Removed
+### 5.1 `driver-service` â€” `service/JwtService.java` â€” Issuing Logic Removed
 
 ```diff
 --- a/microservices/driver-service/src/main/java/com/rideshare/driverservice/service/JwtService.java  (3f850eb)
@@ -117,18 +117,18 @@ The architecture has since been revised:
 ```
 
 **Removed:**
-- `import java.util.Date` — no longer needed
-- `@Value("${jwt.expiration}") private long expiration` — only used by the issuing method
-- `public String generateToken(String subject)` — the entire token-issuance method
+- `import java.util.Date` â€” no longer needed
+- `@Value("${jwt.expiration}") private long expiration` â€” only used by the issuing method
+- `public String generateToken(String subject)` â€” the entire token-issuance method
 
-**Kept (validation stack — untouched):**
-- `getSignKey()` — used by both `extractSubject` and `isTokenValid`
-- `extractSubject(String token)` — parses and verifies token signature, returns subject
-- `isTokenValid(String token, String subject)` — checks subject matches
+**Kept (validation stack â€” untouched):**
+- `getSignKey()` â€” used by both `extractSubject` and `isTokenValid`
+- `extractSubject(String token)` â€” parses and verifies token signature, returns subject
+- `isTokenValid(String token, String subject)` â€” checks subject matches
 
 ---
 
-### 5.2 `driver-service` — `resources/application.yaml` — Expiration Config Removed
+### 5.2 `driver-service` â€” `resources/application.yaml` â€” Expiration Config Removed
 
 ```diff
 --- a/microservices/driver-service/src/main/resources/application.yaml  (3f850eb)
@@ -142,12 +142,12 @@ The architecture has since been revised:
 +  secret: myVeryStrongSecretKeyForRideShareApplication2025
 ```
 
-**Removed:** `jwt.expiration: 86400000` — only consumed by `generateToken()`, which is now gone.  
-**Kept:** `jwt.secret` — still required by `getSignKey()` → `extractSubject()` for validating incoming tokens.
+**Removed:** `jwt.expiration: 86400000` â€” only consumed by `generateToken()`, which is now gone.  
+**Kept:** `jwt.secret` â€” still required by `getSignKey()` â†’ `extractSubject()` for validating incoming tokens.
 
 ---
 
-### 5.3 `trip-service` — `dto/ErrorResponse.java` — New File
+### 5.3 `trip-service` â€” `dto/ErrorResponse.java` â€” New File
 
 **Path:** `microservices/trip-service/trip-service/src/main/java/com/rideshare/tripservice/dto/ErrorResponse.java`
 
@@ -168,7 +168,7 @@ public record ErrorResponse(
 
 ---
 
-### 5.4 `trip-service` — `exception/GlobalExceptionHandler.java` — New File
+### 5.4 `trip-service` â€” `exception/GlobalExceptionHandler.java` â€” New File
 
 **Path:** `microservices/trip-service/trip-service/src/main/java/com/rideshare/tripservice/exception/GlobalExceptionHandler.java`
 
@@ -237,8 +237,8 @@ public class GlobalExceptionHandler {
 
 | Exception | HTTP Status | Trigger scenario |
 |---|---|---|
-| `TripNotFoundException` | `404 Not Found` | `GET /trips/{id}`, `PATCH /trips/{id}/status`, `PATCH /trips/{id}/assign-driver` — id not in DB |
-| `IllegalStateException` | `409 Conflict` | Invalid status transition (e.g. COMPLETED → IN_PROGRESS), or assigning driver to a non-REQUESTED trip, or trip already has a driver |
+| `TripNotFoundException` | `404 Not Found` | `GET /trips/{id}`, `PATCH /trips/{id}/status`, `PATCH /trips/{id}/assign-driver` â€” id not in DB |
+| `IllegalStateException` | `409 Conflict` | Invalid status transition (e.g. COMPLETED â†’ IN_PROGRESS), or assigning driver to a non-REQUESTED trip, or trip already has a driver |
 | `Exception` (catch-all) | `500 Internal Server Error` | Any unexpected runtime failure |
 
 **Before this handler existed:** Spring's default `DefaultHandlerExceptionResolver` would return a `500` for `TripNotFoundException` and `IllegalStateException` since neither extends `ResponseStatusException`. Now they return semantically correct codes.
@@ -248,18 +248,18 @@ public class GlobalExceptionHandler {
 ## 6. Files Explicitly NOT Changed
 
 ### driver-service
-- `pom.xml` — Spring Security + JJWT deps remain (validation still needs them)
-- `config/JwtAuthenticationFilter.java` — untouched
-- `config/SecurityConfig.java` — untouched
-- `service/CustomDriverDetailService.java` — untouched
-- All controllers, services, repositories, entities, DTOs (except `JwtService`) — untouched
+- `pom.xml` â€” Spring Security + JJWT deps remain (validation still needs them)
+- `config/JwtAuthenticationFilter.java` â€” untouched
+- `config/SecurityConfig.java` â€” untouched
+- `service/CustomDriverDetailService.java` â€” untouched
+- All controllers, services, repositories, entities, DTOs (except `JwtService`) â€” untouched
 
 ### trip-service
-- `pom.xml` — no new deps added (GlobalExceptionHandler needs none)
-- `resources/application.yaml` — untouched
-- `TripController.java` — untouched
-- `TripService.java` — untouched
-- All existing DTOs, entities, repositories — untouched
+- `pom.xml` â€” no new deps added (GlobalExceptionHandler needs none)
+- `resources/application.yaml` â€” untouched
+- `TripController.java` â€” untouched
+- `TripService.java` â€” untouched
+- All existing DTOs, entities, repositories â€” untouched
 
 **No files in `user-service` were touched.**
 
@@ -271,9 +271,9 @@ public class GlobalExceptionHandler {
 |---|---|---|---|
 | R1 | `driver-service` JWT secret still in plaintext in `application.yaml` | **HIGH** | Inherited from previous session. Must be externalised before cloud deployment |
 | R2 | `driver-service` validates tokens but gateway doesn't yet exist | **MEDIUM** | During transition, driver-service is still the only line of defence on port 8082. Do not expose 8082 publicly until gateway is deployed |
-| R3 | `trip-service` has no security layer at all | **HIGH** | No JWT filter, no Spring Security — all `/trips` endpoints are publicly accessible. Acceptable only if trip-service is hidden behind gateway / not yet exposed |
+| R3 | `trip-service` has no security layer at all | **HIGH** | No JWT filter, no Spring Security â€” all `/trips` endpoints are publicly accessible. Acceptable only if trip-service is hidden behind gateway / not yet exposed |
 | R4 | `GlobalExceptionHandler` catch-all `Exception` handler may mask security exceptions | **LOW** | Spring Security's `AccessDeniedException` and `AuthenticationException` are handled by the security filter chain before reaching controllers, so they won't be intercepted by `@RestControllerAdvice`. Safe. |
-| R5 | `IllegalStateException` mapped to 409 Conflict | **LOW** | Intentional — all business rule violations in `TripService` throw `IllegalStateException`. If a library dependency also throws `IllegalStateException` for an unrelated reason, it will incorrectly surface as 409. Monitor if deps are added. |
+| R5 | `IllegalStateException` mapped to 409 Conflict | **LOW** | Intentional â€” all business rule violations in `TripService` throw `IllegalStateException`. If a library dependency also throws `IllegalStateException` for an unrelated reason, it will incorrectly surface as 409. Monitor if deps are added. |
 
 ---
 
@@ -302,10 +302,10 @@ After rollback, `TripNotFoundException` and `IllegalStateException` will again s
 
 ## 9. Recommended Next Steps
 
-- [ ] Commit these changes: `git add microservices/driver-service microservices/trip-service && git commit -m "refactor: gateway arch — remove issuing from driver-service, add trip-service GlobalExceptionHandler"`
+- [ ] Commit these changes: `git add microservices/driver-service microservices/trip-service && git commit -m "refactor: gateway arch â€” remove issuing from driver-service, add trip-service GlobalExceptionHandler"`
 - [ ] Move `jwt.secret` to an environment variable (`JWT_SECRET`) in both `user-service` and `driver-service`
 - [ ] Implement API Gateway service with JWT validation middleware
 - [ ] Once gateway validates tokens, remove `JwtAuthenticationFilter` + `SecurityConfig` + `CustomDriverDetailService` from `driver-service` (they become redundant)
-- [ ] Add Spring Security + JWT filter to `trip-service` OR rely on gateway — decide and document
-- [ ] Test: `GET /trips/{id}` with a non-existent id → expect `404` with `ErrorResponse` body
-- [ ] Test: `PATCH /trips/{id}/status` with invalid transition → expect `409` with `ErrorResponse` body
+- [ ] Add Spring Security + JWT filter to `trip-service` OR rely on gateway â€” decide and document
+- [ ] Test: `GET /trips/{id}` with a non-existent id â†’ expect `404` with `ErrorResponse` body
+- [ ] Test: `PATCH /trips/{id}/status` with invalid transition â†’ expect `409` with `ErrorResponse` body

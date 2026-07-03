@@ -1,4 +1,4 @@
-# Ride-Sharing Platform — Onboarding Blueprint
+# Ride-Sharing Platform â€” Onboarding Blueprint
 
 A complete mental model of the system before writing any code.
 
@@ -14,7 +14,7 @@ A ride-sharing platform coordinates three things in real time, at scale:
 - **Drivers** who have capacity and location
 - **Trips** that match the two, track progress, and settle payment
 
-The hard part isn't CRUD. It's that everything is **live, geographically indexed, and concurrent** — thousands of drivers moving every few seconds, riders requesting trips that must be matched within seconds, and state (trip status, driver availability, location) that must stay consistent across services that don't share a database.
+The hard part isn't CRUD. It's that everything is **live, geographically indexed, and concurrent** â€” thousands of drivers moving every few seconds, riders requesting trips that must be matched within seconds, and state (trip status, driver availability, location) that must stay consistent across services that don't share a database.
 
 ### Why is this project architecturally interesting?
 
@@ -35,18 +35,18 @@ This project is essentially a **microservices systems-design course disguised as
 - Reasoning about consistency, failure modes, and partial outages
 - Geospatial querying at scale (PostGIS)
 - Containerized, production-style deployment workflows
-- Debugging across process and network boundaries — the skill that separates senior engineers from junior ones
+- Debugging across process and network boundaries â€” the skill that separates senior engineers from junior ones
 
 ### Why are microservices useful *here* specifically?
 
-Not "because microservices are modern" — but because the components genuinely have **different scaling profiles and failure tolerances**:
+Not "because microservices are modern" â€” but because the components genuinely have **different scaling profiles and failure tolerances**:
 
 - The **Location/Tracking service** gets hammered with high-frequency writes (driver GPS pings every few seconds) and needs to scale independently.
 - The **Trip Matching service** is CPU/logic-heavy and benefits from independent scaling during demand spikes.
-- The **Notification service** can degrade gracefully (a delayed push notification is annoying, not catastrophic) — so it shouldn't be allowed to slow down trip creation.
+- The **Notification service** can degrade gracefully (a delayed push notification is annoying, not catastrophic) â€” so it shouldn't be allowed to slow down trip creation.
 - **Payments** need strict isolation, auditability, and different deployment cadence (compliance-sensitive code changes less often, more carefully).
 
-If one of these were down, the others should largely keep working. That's the core value proposition — **isolating blast radius and scaling independently** — and it's why this architecture is worth the added complexity.
+If one of these were down, the others should largely keep working. That's the core value proposition â€” **isolating blast radius and scaling independently** â€” and it's why this architecture is worth the added complexity.
 
 ---
 
@@ -57,7 +57,7 @@ If one of these were down, the others should largely keep working. That's the co
 **Services**
 - User Service (riders + drivers identity, profiles, auth)
 - Driver Service (driver-specific state: status, vehicle, availability)
-- Trip Service (trip lifecycle: requested → matched → in-progress → completed)
+- Trip Service (trip lifecycle: requested â†’ matched â†’ in-progress â†’ completed)
 - Location/Tracking Service (real-time driver location ingestion + queries)
 - Matching Service (matches riders to nearby available drivers)
 - Notification Service (push/SMS/in-app alerts)
@@ -65,15 +65,15 @@ If one of these were down, the others should largely keep working. That's the co
 
 **Infrastructure**
 - API Gateway (single entry point for clients)
-- Service Discovery (Eureka) — services find each other dynamically
-- Config Server — centralized configuration for all services
-- Message Broker (RabbitMQ or Kafka) — async communication
+- Service Discovery (Eureka) â€” services find each other dynamically
+- Config Server â€” centralized configuration for all services
+- Message Broker (RabbitMQ or Kafka) â€” async communication
 - Load Balancer (in front of the gateway, in production)
 
 **Data Stores**
-- PostgreSQL (per-service databases — never shared)
+- PostgreSQL (per-service databases â€” never shared)
 - PostgreSQL + PostGIS (geospatial queries for Location/Matching)
-- Redis (optional — caching driver locations, session data)
+- Redis (optional â€” caching driver locations, session data)
 
 **External Systems**
 - Maps/Geocoding API (e.g., Google Maps, Mapbox)
@@ -82,7 +82,7 @@ If one of these were down, the others should largely keep working. That's the co
 
 **Deployment Components**
 - Docker containers per service
-- Container orchestration (Docker Compose locally → ECS/Kubernetes in production)
+- Container orchestration (Docker Compose locally â†’ ECS/Kubernetes in production)
 - AWS infrastructure (VPC, ALB, RDS, ECR, CloudWatch)
 
 ---
@@ -123,10 +123,10 @@ flowchart TB
     Payment --> DB
 ```
 
-**Request flow (simple example — rider requests a trip):**
+**Request flow (simple example â€” rider requests a trip):**
 
 1. Rider app sends request to **API Gateway**.
-2. Gateway routes to **Trip Service** → creates trip in "REQUESTED" state.
+2. Gateway routes to **Trip Service** â†’ creates trip in "REQUESTED" state.
 3. Trip Service asks **Matching Service** to find a driver.
 4. Matching Service queries **Location Service** (PostGIS "nearest drivers" query).
 5. Matching Service confirms a driver via **Driver Service**, assigns the trip.
@@ -238,7 +238,7 @@ flowchart TB
 - Every service pulls configuration from a **Config Server** at startup (and optionally refreshes it).
 - A **load balancer** sits in front of the gateway for high availability.
 - **Redis** caches hot data (live driver locations) to avoid hammering PostGIS.
-- Both **Trip** and **Payment** services publish events to the broker — multiple services can be consumers (Notification, Location for analytics, etc.).
+- Both **Trip** and **Payment** services publish events to the broker â€” multiple services can be consumers (Notification, Location for analytics, etc.).
 
 ---
 
@@ -262,17 +262,17 @@ flowchart TB
 - **APIs exposed:** `GET /drivers/{id}/status`, `PUT /drivers/{id}/status`, `GET /drivers/{id}/vehicle`.
 - **Dependencies:** User Service (for identity reference via user ID, not duplicated data).
 - **Never belongs here:** Real-time GPS coordinates (that's Location Service), trip history (that's Trip Service).
-- **Common beginner mistakes:** Storing live location here. Location changes every few seconds — a different write pattern and scaling need than driver profile data. Mixing them creates a hot table that's also your source of truth for profile data.
+- **Common beginner mistakes:** Storing live location here. Location changes every few seconds â€” a different write pattern and scaling need than driver profile data. Mixing them creates a hot table that's also your source of truth for profile data.
 
 ### Trip Service
 
-- **Purpose:** Owns the trip lifecycle — the "source of truth" for what's happening with a ride.
-- **Responsibilities:** Create trip requests, manage state transitions (REQUESTED → MATCHED → IN_PROGRESS → COMPLETED/CANCELLED), orchestrate calls to Matching and Payment.
+- **Purpose:** Owns the trip lifecycle â€” the "source of truth" for what's happening with a ride.
+- **Responsibilities:** Create trip requests, manage state transitions (REQUESTED â†’ MATCHED â†’ IN_PROGRESS â†’ COMPLETED/CANCELLED), orchestrate calls to Matching and Payment.
 - **Data owned:** Trip records, status history, fare amount (reference, not processing).
 - **APIs exposed:** `POST /trips`, `GET /trips/{id}`, `PATCH /trips/{id}/status`.
 - **Dependencies:** Matching Service (to find a driver), Payment Service (to settle fare), Message Broker (to publish status-change events).
 - **Never belongs here:** Actual payment processing logic, location queries, push notification logic.
-- **Common beginner mistakes:** Making Trip Service synchronously call Notification Service directly. If Notification is slow or down, trip creation shouldn't block — that's exactly what the message broker is for.
+- **Common beginner mistakes:** Making Trip Service synchronously call Notification Service directly. If Notification is slow or down, trip creation shouldn't block â€” that's exactly what the message broker is for.
 
 ### Location/Tracking Service
 
@@ -282,17 +282,17 @@ flowchart TB
 - **APIs exposed:** `POST /locations/ping` (or WebSocket stream), `GET /locations/nearby?lat=&lng=&radius=`.
 - **Dependencies:** None upstream typically; Matching Service depends on it.
 - **Never belongs here:** Trip status, driver profile data, payment data.
-- **Common beginner mistakes:** Writing every single GPS ping straight to PostgreSQL without a cache layer — this becomes the first bottleneck under real load. Also: not understanding that "nearest driver" queries need spatial indexes (PostGIS), not naive lat/lng range filters.
+- **Common beginner mistakes:** Writing every single GPS ping straight to PostgreSQL without a cache layer â€” this becomes the first bottleneck under real load. Also: not understanding that "nearest driver" queries need spatial indexes (PostGIS), not naive lat/lng range filters.
 
 ### Matching Service
 
 - **Purpose:** The "brain" that pairs a trip request with a driver.
 - **Responsibilities:** Query nearby available drivers, apply matching logic (distance, rating, acceptance rate), confirm assignment.
-- **Data owned:** Typically none persistent — it's a stateless orchestrator (may have a short-lived cache of "drivers currently being offered a trip").
-- **APIs exposed:** Often internal-only — called by Trip Service, not exposed via the gateway.
+- **Data owned:** Typically none persistent â€” it's a stateless orchestrator (may have a short-lived cache of "drivers currently being offered a trip").
+- **APIs exposed:** Often internal-only â€” called by Trip Service, not exposed via the gateway.
 - **Dependencies:** Location Service, Driver Service, Trip Service.
 - **Never belongs here:** Persisted trip records, driver profile storage.
-- **Common beginner mistakes:** Treating matching as a simple "first driver found" query without handling the race condition of multiple trips trying to match the same driver simultaneously — this is a classic distributed-systems concurrency bug.
+- **Common beginner mistakes:** Treating matching as a simple "first driver found" query without handling the race condition of multiple trips trying to match the same driver simultaneously â€” this is a classic distributed-systems concurrency bug.
 
 ### Notification Service
 
@@ -301,7 +301,7 @@ flowchart TB
 - **Data owned:** Notification logs/history, delivery status.
 - **APIs exposed:** Mostly event-driven (consumer), may expose `GET /notifications/{userId}` for in-app history.
 - **Dependencies:** Message Broker, external push provider.
-- **Never belongs here:** Business logic about *when* to notify — that decision belongs to the service that owns the state change (Trip, Payment). Notification Service just delivers.
+- **Never belongs here:** Business logic about *when* to notify â€” that decision belongs to the service that owns the state change (Trip, Payment). Notification Service just delivers.
 - **Common beginner mistakes:** Making other services call Notification Service synchronously via REST. This couples availability of unrelated services and is the textbook use case for async messaging.
 
 ### Payment Service
@@ -312,7 +312,7 @@ flowchart TB
 - **APIs exposed:** `POST /payments/charge`, `GET /payments/{tripId}`.
 - **Dependencies:** Trip Service (for trip details), external payment gateway.
 - **Never belongs here:** Trip status management, user profile data.
-- **Common beginner mistakes:** Storing raw card numbers (always use tokenization via the gateway). Also, not making payment operations idempotent — retries on a payment API without idempotency keys can cause double-charging.
+- **Common beginner mistakes:** Storing raw card numbers (always use tokenization via the gateway). Also, not making payment operations idempotent â€” retries on a payment API without idempotency keys can cause double-charging.
 
 ---
 
@@ -320,18 +320,18 @@ flowchart TB
 
 | Technology | Why It Exists | Problem It Solves | What Breaks Without It |
 |---|---|---|---|
-| **Spring Boot** | Opinionated framework for building production-ready Java services quickly | Eliminates repetitive setup (embedded server, dependency injection, config wiring) | You'd hand-wire servlets, DI containers, and config — weeks of boilerplate per service |
+| **Spring Boot** | Opinionated framework for building production-ready Java services quickly | Eliminates repetitive setup (embedded server, dependency injection, config wiring) | You'd hand-wire servlets, DI containers, and config â€” weeks of boilerplate per service |
 | **PostgreSQL** | Relational database with strong consistency guarantees | Reliable storage of structured, transactional data (users, trips, payments) | No durable, queryable, ACID-compliant data store |
 | **PostGIS** | Geospatial extension for PostgreSQL | Efficient "find nearby" queries using spatial indexes | "Nearest driver" queries become slow full-table scans with manual lat/lng math |
 | **Docker** | Packages an app + its environment into a portable container | Consistent runtime across dev/staging/prod; isolates dependencies per service | "Works on my machine" problems; manual environment setup on every server |
-| **RabbitMQ / Kafka** | Message broker for asynchronous communication | Decouples services in time — producers don't wait for consumers | Every interaction becomes synchronous; one slow/down service cascades failures everywhere |
+| **RabbitMQ / Kafka** | Message broker for asynchronous communication | Decouples services in time â€” producers don't wait for consumers | Every interaction becomes synchronous; one slow/down service cascades failures everywhere |
 | **Eureka** | Service registry for dynamic service discovery | Services find each other by name, even as IPs/ports change with scaling | Hardcoded URLs that break the moment you scale, restart, or redeploy a service |
-| **Config Server** | Centralized externalized configuration | One place to manage config across many services/environments | Config drift — every service has its own copy of settings, hard to update consistently |
+| **Config Server** | Centralized externalized configuration | One place to manage config across many services/environments | Config drift â€” every service has its own copy of settings, hard to update consistently |
 | **API Gateway** | Single entry point for all client traffic | Routing, auth enforcement, rate limiting, and hiding internal topology from clients | Clients must know every service's address; no central place for cross-cutting concerns (auth, logging) |
-| **JWT** | Stateless authentication token | Lets any service verify identity without calling back to an auth server every time | Every request needs a round-trip to a central auth service — latency and single point of failure |
-| **WebSockets** | Persistent bidirectional connection | Real-time updates (driver location, trip status) without constant polling | Clients must poll repeatedly — wasted bandwidth and delayed updates |
+| **JWT** | Stateless authentication token | Lets any service verify identity without calling back to an auth server every time | Every request needs a round-trip to a central auth service â€” latency and single point of failure |
+| **WebSockets** | Persistent bidirectional connection | Real-time updates (driver location, trip status) without constant polling | Clients must poll repeatedly â€” wasted bandwidth and delayed updates |
 | **AWS** | Cloud infrastructure provider | Hosting, scaling, managed databases, networking | You'd manage physical/virtual servers, networking, and scaling manually |
-| **Monitoring tools** (e.g., CloudWatch, Prometheus/Grafana) | Observability into running systems | Detect failures, performance issues, and trends before/while they impact users | You're debugging blind — no visibility into what's actually happening in production |
+| **Monitoring tools** (e.g., CloudWatch, Prometheus/Grafana) | Observability into running systems | Detect failures, performance issues, and trends before/while they impact users | You're debugging blind â€” no visibility into what's actually happening in production |
 
 ---
 
@@ -363,7 +363,7 @@ flowchart TB
 ### Level 4: Distributed Systems
 | Topic | Why Needed | Difficulty | Priority | Depends On It |
 |---|---|---|---|---|
-| Async messaging (RabbitMQ basics: exchanges, queues, routing) | Decoupled event-driven flows | Medium-High | High | Trip → Notification flow |
+| Async messaging (RabbitMQ basics: exchanges, queues, routing) | Decoupled event-driven flows | Medium-High | High | Trip â†’ Notification flow |
 | Event-driven architecture patterns | Reliable cross-service workflows | High | Medium | Trip lifecycle, Payment events |
 | Eventual consistency & idempotency | Avoid duplicate processing, race conditions | High | High | Matching, Payment |
 | Distributed tracing concepts | Debugging across services | Medium | Medium | Whole system observability |
@@ -376,46 +376,46 @@ flowchart TB
 | AWS deployment (ECR, ECS/EKS or EC2, ALB, RDS) | Production hosting | High | Medium | Final deployment |
 | Monitoring & logging (CloudWatch/Prometheus/Grafana) | Observability in production | Medium | Medium | Operations |
 
-**Suggested pacing:** Don't try to "finish" Level 3 before touching Level 4 — build the User and Driver services with Eureka/Config first (Level 3 in practice), then introduce RabbitMQ once you have two services that need to talk asynchronously (Trip → Notification). Learning happens best just-in-time, anchored to a real component you're about to build.
+**Suggested pacing:** Don't try to "finish" Level 3 before touching Level 4 â€” build the User and Driver services with Eureka/Config first (Level 3 in practice), then introduce RabbitMQ once you have two services that need to talk asynchronously (Trip â†’ Notification). Learning happens best just-in-time, anchored to a real component you're about to build.
 
 ---
 
 ## 6. Dangerous Waters
 
 ### Service Discovery (Eureka)
-- **Why beginners struggle:** It's "magic" until something doesn't register, and the failure mode is silent — services just can't find each other, with vague connection errors.
+- **Why beginners struggle:** It's "magic" until something doesn't register, and the failure mode is silent â€” services just can't find each other, with vague connection errors.
 - **Typical failures:** Service starts before Eureka is ready; wrong `spring.application.name`; firewall/network issues in Docker preventing registration.
 - **How to recognize it:** Errors like "no instances available for service X" or `UnknownHostException` referencing a logical service name instead of an IP.
-- **How to avoid it:** Check the Eureka dashboard (`/eureka` web UI) first, always — if a service isn't listed there, nothing downstream will work regardless of how correct its code is.
+- **How to avoid it:** Check the Eureka dashboard (`/eureka` web UI) first, always â€” if a service isn't listed there, nothing downstream will work regardless of how correct its code is.
 
 ### Distributed Systems / Eventual Consistency
 - **Why beginners struggle:** You're used to one database, one transaction, instant consistency. Across services, "the trip is matched" might be true in Trip Service before Driver Service has updated availability.
 - **Typical failures:** Two trips matched to the same driver; a service reads stale data right after another service wrote new data.
-- **How to recognize it:** Intermittent bugs that don't reproduce consistently — "it worked when I tested it slowly."
-- **How to avoid it:** Design for idempotency, use events to propagate state changes, and accept that "eventually consistent" is the normal state — don't fight it with synchronous calls everywhere.
+- **How to recognize it:** Intermittent bugs that don't reproduce consistently â€” "it worked when I tested it slowly."
+- **How to avoid it:** Design for idempotency, use events to propagate state changes, and accept that "eventually consistent" is the normal state â€” don't fight it with synchronous calls everywhere.
 
 ### Async Messaging / Event-Driven Architecture (RabbitMQ/Kafka)
 - **Why beginners struggle:** The mental shift from "call a function and get a response" to "publish an event and trust someone will handle it eventually."
 - **Typical failures:** Messages published to the wrong exchange/topic and silently dropped; consumers that crash on bad messages and never recover (poison messages); duplicate processing because consumers aren't idempotent.
-- **How to recognize it:** "I published the event but nothing happened" — check the broker's management UI for queue depth and unacked messages first.
+- **How to recognize it:** "I published the event but nothing happened" â€” check the broker's management UI for queue depth and unacked messages first.
 - **How to avoid it:** Always check the broker dashboard before debugging application code. Build consumers to handle duplicate and out-of-order messages from day one.
 
 ### Docker Networking
-- **Why beginners struggle:** `localhost` inside a container is *not* your host machine, and containers can't reach each other by `localhost` either — they need a shared Docker network and service names as hostnames.
+- **Why beginners struggle:** `localhost` inside a container is *not* your host machine, and containers can't reach each other by `localhost` either â€” they need a shared Docker network and service names as hostnames.
 - **Typical failures:** "Connection refused" between containers that work fine when run individually on the host.
 - **How to recognize it:** Works locally without Docker, breaks only inside docker-compose, with connection-refused or DNS resolution errors.
 - **How to avoid it:** Use Docker Compose service names as hostnames (e.g., `postgres-db`, not `localhost`), and always define a shared network explicitly.
 
 ### Configuration Management (Config Server)
-- **Why beginners struggle:** Config now lives outside the codebase — a typo in a remote config repo doesn't show up as a compile error, only a runtime failure.
+- **Why beginners struggle:** Config now lives outside the codebase â€” a typo in a remote config repo doesn't show up as a compile error, only a runtime failure.
 - **Typical failures:** Service starts with default/missing config because Config Server was unreachable at boot; environment-specific configs (`dev`/`prod`) accidentally mixed up.
-- **How to recognize it:** Service boots "successfully" but behaves as if settings are missing or default — check the actual resolved config via the Spring Boot `/actuator/env` endpoint.
+- **How to recognize it:** Service boots "successfully" but behaves as if settings are missing or default â€” check the actual resolved config via the Spring Boot `/actuator/env` endpoint.
 - **How to avoid it:** Verify config resolution explicitly at startup rather than assuming it loaded correctly.
 
 ### Deployment Debugging (general)
-- **Why beginners struggle:** A bug in production could be in the code, the config, the network, the container, or the infrastructure — and the error messages rarely say which.
+- **Why beginners struggle:** A bug in production could be in the code, the config, the network, the container, or the infrastructure â€” and the error messages rarely say which.
 - **Typical failures:** "It works locally but not in the deployed environment," with no further detail.
-- **How to recognize it:** Compare environments systematically rather than guessing — see Section 9 for the actual framework.
+- **How to recognize it:** Compare environments systematically rather than guessing â€” see Section 9 for the actual framework.
 - **How to avoid it:** Keep local (Docker Compose) and production environments as structurally similar as possible, so "works locally, fails in prod" differences are minimized.
 
 ---
@@ -424,81 +424,81 @@ flowchart TB
 
 **Recommended build order:**
 
-1. **Single monolith-style skeleton first** — build User, Driver, and Trip services as plain Spring Boot apps talking via REST with hardcoded URLs, no Eureka/Config/Docker yet. Get the *business logic* working.
-2. **Introduce Config Server** — extract configuration from each service into the Config Server. Low risk, immediate payoff (you'll feel the benefit of centralized config before adding complexity elsewhere).
-3. **Introduce Eureka** — register the existing services, replace hardcoded URLs with logical service names. Now you understand discovery with services whose *behavior* you already trust.
-4. **Introduce API Gateway** — route external traffic through it. Now clients hit one entry point.
-5. **Build Location Service with PostGIS** — a self-contained service; build and test it in isolation before wiring it to Matching.
-6. **Build Matching Service** — now you have Trip, Driver, and Location all discoverable — Matching can call all three through Eureka/Gateway.
-7. **Introduce RabbitMQ + Notification Service** — by now you have a real event to publish (trip matched/completed), so the async pattern has a concrete purpose instead of being abstract.
-8. **Build Payment Service** — last, because it depends on a stable Trip lifecycle and benefits from everything else (discovery, config, messaging) already being proven.
-9. **Dockerize everything + Docker Compose** — once the *logic* across all services works, containerize. Don't debug business logic and Docker networking simultaneously.
-10. **AWS deployment** — last step, building on a Docker Compose setup that already mirrors production topology.
+1. **Single monolith-style skeleton first** â€” build User, Driver, and Trip services as plain Spring Boot apps talking via REST with hardcoded URLs, no Eureka/Config/Docker yet. Get the *business logic* working.
+2. **Introduce Config Server** â€” extract configuration from each service into the Config Server. Low risk, immediate payoff (you'll feel the benefit of centralized config before adding complexity elsewhere).
+3. **Introduce Eureka** â€” register the existing services, replace hardcoded URLs with logical service names. Now you understand discovery with services whose *behavior* you already trust.
+4. **Introduce API Gateway** â€” route external traffic through it. Now clients hit one entry point.
+5. **Build Location Service with PostGIS** â€” a self-contained service; build and test it in isolation before wiring it to Matching.
+6. **Build Matching Service** â€” now you have Trip, Driver, and Location all discoverable â€” Matching can call all three through Eureka/Gateway.
+7. **Introduce RabbitMQ + Notification Service** â€” by now you have a real event to publish (trip matched/completed), so the async pattern has a concrete purpose instead of being abstract.
+8. **Build Payment Service** â€” last, because it depends on a stable Trip lifecycle and benefits from everything else (discovery, config, messaging) already being proven.
+9. **Dockerize everything + Docker Compose** â€” once the *logic* across all services works, containerize. Don't debug business logic and Docker networking simultaneously.
+10. **AWS deployment** â€” last step, building on a Docker Compose setup that already mirrors production topology.
 
-**Why this order minimizes risk:** Each step introduces exactly *one* new category of complexity at a time, layered on top of components you've already validated. You never debug "is this a business logic bug or an infrastructure bug?" simultaneously — by the time infrastructure (Docker, AWS) enters the picture, the application logic is already proven correct.
+**Why this order minimizes risk:** Each step introduces exactly *one* new category of complexity at a time, layered on top of components you've already validated. You never debug "is this a business logic bug or an infrastructure bug?" simultaneously â€” by the time infrastructure (Docker, AWS) enters the picture, the application logic is already proven correct.
 
 ---
 
 ## 8. Deployment Strategy
 
-**Deploy incrementally — don't aim for "deploy everything at once."**
+**Deploy incrementally â€” don't aim for "deploy everything at once."**
 
-1. **First to deploy:** Config Server + Eureka. These are the foundation — every other service depends on them being reachable. Verify: Eureka dashboard shows itself registered (if applicable) and is reachable from outside its container/network.
+1. **First to deploy:** Config Server + Eureka. These are the foundation â€” every other service depends on them being reachable. Verify: Eureka dashboard shows itself registered (if applicable) and is reachable from outside its container/network.
 
-2. **Second:** One simple, low-risk service (e.g., User Service) — registered with Eureka, pulling config from Config Server. Verify: it appears in the Eureka dashboard, and its `/actuator/health` and `/actuator/env` endpoints look correct.
+2. **Second:** One simple, low-risk service (e.g., User Service) â€” registered with Eureka, pulling config from Config Server. Verify: it appears in the Eureka dashboard, and its `/actuator/health` and `/actuator/env` endpoints look correct.
 
-3. **Third:** API Gateway, routing only to the deployed User Service initially. Verify: external requests through the gateway successfully reach User Service — this proves the entire discovery → routing → service chain works end-to-end before adding more services.
+3. **Third:** API Gateway, routing only to the deployed User Service initially. Verify: external requests through the gateway successfully reach User Service â€” this proves the entire discovery â†’ routing â†’ service chain works end-to-end before adding more services.
 
-4. **Then, one service at a time:** Driver, Trip, Location, Matching — each deployed and verified individually (registers with Eureka, reachable via Gateway) before moving to the next.
+4. **Then, one service at a time:** Driver, Trip, Location, Matching â€” each deployed and verified individually (registers with Eureka, reachable via Gateway) before moving to the next.
 
 5. **Then:** RabbitMQ, followed by Notification Service as a consumer. Verify: a test event published manually via the broker's management UI is actually consumed and logged.
 
-6. **Last:** Payment Service, given its sensitivity — deploy to a staging-equivalent environment first, with extra verification of the external payment gateway integration before any "real" traffic.
+6. **Last:** Payment Service, given its sensitivity â€” deploy to a staging-equivalent environment first, with extra verification of the external payment gateway integration before any "real" traffic.
 
 **Common deployment pitfalls:**
 
-- Deploying a service before its dependencies (e.g., Trip Service before Eureka is up) — it'll fail to register and you'll waste time debugging the *service* when the *infrastructure* isn't ready.
-- Assuming "container is running" means "service is healthy" — always check `/actuator/health`, not just `docker ps`.
-- Environment variable mismatches between local `.env`/Compose files and production secrets — a frequent silent source of "works locally, broken in prod."
-- Deploying multiple new services at once — if something breaks, you won't know which one caused it.
+- Deploying a service before its dependencies (e.g., Trip Service before Eureka is up) â€” it'll fail to register and you'll waste time debugging the *service* when the *infrastructure* isn't ready.
+- Assuming "container is running" means "service is healthy" â€” always check `/actuator/health`, not just `docker ps`.
+- Environment variable mismatches between local `.env`/Compose files and production secrets â€” a frequent silent source of "works locally, broken in prod."
+- Deploying multiple new services at once â€” if something breaks, you won't know which one caused it.
 
 ---
 
 ## 9. Debugging Playbook
 
-**The mental model: think in layers, and isolate by elimination — not by guessing at the code first.**
+**The mental model: think in layers, and isolate by elimination â€” not by guessing at the code first.**
 
 When something breaks, walk outward-in (or inward-out) through these layers, checking each before assuming the problem is in the layer "below":
 
 ```
 Client (browser/app)
-   ↓
+   â†“
 API Gateway
-   ↓
+   â†“
 Service Discovery (is the target service even registered?)
-   ↓
+   â†“
 Target Service (is it running? healthy? config loaded correctly?)
-   ↓
+   â†“
 Database / Message Broker (is it reachable? does the data look right?)
-   ↓
+   â†“
 External systems (Maps, Payment gateway, push provider)
 ```
 
 **The framework, step by step:**
 
-1. **Reproduce at the boundary first.** Did the request even leave the client? Did it reach the Gateway? (Check Gateway logs before anything else — many "bugs" never make it past routing.)
+1. **Reproduce at the boundary first.** Did the request even leave the client? Did it reach the Gateway? (Check Gateway logs before anything else â€” many "bugs" never make it past routing.)
 
-2. **Check discovery before logic.** If a service-to-service call fails, your first question is "was the target service registered and discoverable at the time of the call?" — not "is there a bug in my matching algorithm?"
+2. **Check discovery before logic.** If a service-to-service call fails, your first question is "was the target service registered and discoverable at the time of the call?" â€” not "is there a bug in my matching algorithm?"
 
 3. **Check health and config before behavior.** Hit `/actuator/health` and `/actuator/env` on the suspect service. A surprising number of "weird bugs" are actually "the service loaded the wrong config" or "a dependency it needs isn't up yet."
 
 4. **Check the data layer independently.** Connect directly to the database or the broker's management UI. Is the data what you expect *before* the service touched it? This tells you whether the bug is "my service wrote wrong data" vs. "my service is reading correct data wrong."
 
-5. **Check async paths last, separately.** If an event-driven flow seems broken, verify the message was *published* (check broker queue) before assuming the *consumer* is broken — these are two independent failure points.
+5. **Check async paths last, separately.** If an event-driven flow seems broken, verify the message was *published* (check broker queue) before assuming the *consumer* is broken â€” these are two independent failure points.
 
-6. **Only now look at application code** — once you know *which layer* the problem is in, you're debugging a small, scoped piece of logic instead of the entire system.
+6. **Only now look at application code** â€” once you know *which layer* the problem is in, you're debugging a small, scoped piece of logic instead of the entire system.
 
-**The core habit experienced engineers have:** they don't ask "what's wrong with my code?" first. They ask "which of these six layers is the first one where reality diverges from what I expect?" — and they check that with the fastest possible tool (a dashboard, a health endpoint, a log line) before opening an editor.
+**The core habit experienced engineers have:** they don't ask "what's wrong with my code?" first. They ask "which of these six layers is the first one where reality diverges from what I expect?" â€” and they check that with the fastest possible tool (a dashboard, a health endpoint, a log line) before opening an editor.
 
 ---
 
@@ -506,16 +506,16 @@ External systems (Maps, Payment gateway, push provider)
 
 By the end of this project, you should be able to confidently explain:
 
-- **Why** each service exists and what would go wrong if its responsibilities were merged with another service — not just "what it does."
+- **Why** each service exists and what would go wrong if its responsibilities were merged with another service â€” not just "what it does."
 - **How a request flows** through the entire system end-to-end, including which parts are synchronous vs. asynchronous, and *why* each was chosen.
-- **What happens when one service is down** — which parts of the system degrade gracefully, and which parts are hard dependencies.
-- **How service discovery and config actually work at runtime** — not just "Eureka lets services find each other," but what the registration/lookup process looks like and what failure looks like.
+- **What happens when one service is down** â€” which parts of the system degrade gracefully, and which parts are hard dependencies.
+- **How service discovery and config actually work at runtime** â€” not just "Eureka lets services find each other," but what the registration/lookup process looks like and what failure looks like.
 - **Why async messaging exists for specific flows** and what would break (or become unacceptably slow/fragile) if those flows were synchronous instead.
-- **The Docker networking model** — why containers need explicit shared networks and service-name-based addressing.
-- **A debugging approach that scales** — given an unfamiliar failure in this system, you'd know which layer to check first and why, rather than starting from "let me read all the code."
+- **The Docker networking model** â€” why containers need explicit shared networks and service-name-based addressing.
+- **A debugging approach that scales** â€” given an unfamiliar failure in this system, you'd know which layer to check first and why, rather than starting from "let me read all the code."
 
 **What separates "followed a tutorial" from "genuinely understands the system":**
 
-A tutorial-follower can describe *what each piece does in isolation*. Someone with genuine understanding can predict *failure modes and tradeoffs* — they can answer questions like "what happens if RabbitMQ goes down for 5 minutes during peak hours?" or "why is the Location Service's database different from the Trip Service's database, and what would go wrong if they shared one?" — and can reason about a change to one part of the system in terms of its *ripple effects* on the rest, before writing any code.
+A tutorial-follower can describe *what each piece does in isolation*. Someone with genuine understanding can predict *failure modes and tradeoffs* â€” they can answer questions like "what happens if RabbitMQ goes down for 5 minutes during peak hours?" or "why is the Location Service's database different from the Trip Service's database, and what would go wrong if they shared one?" â€” and can reason about a change to one part of the system in terms of its *ripple effects* on the rest, before writing any code.
 
-That shift — from "I built this" to "I can reason about this" — is the actual goal of this project.
+That shift â€” from "I built this" to "I can reason about this" â€” is the actual goal of this project.

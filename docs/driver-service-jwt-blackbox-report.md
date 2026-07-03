@@ -1,4 +1,4 @@
-# Blackbox Change Report — `driver-service` JWT Security Layer
+# Blackbox Change Report â€” `driver-service` JWT Security Layer
 
 > **Purpose:** Full forensic record of changes made to `driver-service` after the last committed state.  
 > Used for deployment post-mortems, debugging, and audit trails.
@@ -22,14 +22,14 @@
 The following was the full commit graph when changes were applied. **All changes are currently UNCOMMITTED (working tree only).**
 
 ```
-8763aea  2026-06-17 21:30 +0530  DriverService vehicle endpoints        ← HEAD at change time
+8763aea  2026-06-17 21:30 +0530  DriverService vehicle endpoints        â† HEAD at change time
 715a8d0  2026-06-17 16:22 +0530  driver-service till controllers
 00eab08  2026-06-16 16:33 +0530  User service jwt auth
 217b9e4  2026-06-15 20:43 +0530  User service-v1
 7a4017b  2026-06-14 14:25 +0530  Initial project setup
 ```
 
-> [!IMPORTANT]
+> **IMPORTANT:**
 > HEAD at the time of this change was `8763aeaaddd37bcb11c274e817ba9580c194d501`.
 > None of the changes below are committed. If the service fails at deployment, compare working tree
 > against this commit to isolate the regression.
@@ -55,15 +55,15 @@ The following was the full commit graph when changes were applied. **All changes
 ?? microservices/driver-service/src/main/java/com/rideshare/driverservice/service/JwtService.java                 <- new file
 ```
 
-> [!NOTE]
-> `GlobalExceptionHandler.java` shows as modified by `git diff` but the **functional content is identical** to the committed version —
+> **NOTE:**
+> `GlobalExceptionHandler.java` shows as modified by `git diff` but the **functional content is identical** to the committed version â€”
 > it is a whitespace/line-ending reformat introduced by the IDE when the file was read. No handler logic was changed.
 
 ---
 
 ## 5. Exact Diffs
 
-### 5.1 `pom.xml` — Added Dependencies
+### 5.1 `pom.xml` â€” Added Dependencies
 
 ```diff
 --- a/microservices/driver-service/pom.xml  (8763aea)
@@ -99,12 +99,12 @@ The following was the full commit graph when changes were applied. **All changes
  </dependencies>
 ```
 
-**Versions pinned to:** `jjwt 0.12.5` — identical to `user-service/pom.xml`.  
+**Versions pinned to:** `jjwt 0.12.5` â€” identical to `user-service/pom.xml`.  
 **Spring Security version:** managed by Spring Boot parent `3.5.15` (no explicit version).
 
 ---
 
-### 5.2 `application.yaml` — Added JWT Config
+### 5.2 `application.yaml` â€” Added JWT Config
 
 ```diff
 --- a/microservices/driver-service/src/main/resources/application.yaml  (8763aea)
@@ -119,15 +119,15 @@ The following was the full commit graph when changes were applied. **All changes
 +  expiration: 86400000
 ```
 
-> [!WARNING]
-> The JWT secret is **identical to user-service**. This is intentional — it allows a token issued by
+> **WARNING:**
+> The JWT secret is **identical to user-service**. This is intentional â€” it allows a token issued by
 > `user-service` on login to be validated by `driver-service` (cross-service trust via shared secret).
 > **Before production deployment**, this secret MUST be moved to an environment variable or secrets manager
 > (e.g., AWS Secrets Manager, Vault, Kubernetes Secret). Never commit a live production secret in plaintext.
 
 ---
 
-### 5.3 `service/JwtService.java` — New File
+### 5.3 `service/JwtService.java` â€” New File
 
 **Path:** `microservices/driver-service/src/main/java/com/rideshare/driverservice/service/JwtService.java`
 
@@ -188,7 +188,7 @@ the driver JWT subject is a `userId` (Long as String), not an email address.
 
 ---
 
-### 5.4 `service/CustomDriverDetailService.java` — New File
+### 5.4 `service/CustomDriverDetailService.java` â€” New File
 
 **Path:** `microservices/driver-service/src/main/java/com/rideshare/driverservice/service/CustomDriverDetailService.java`
 
@@ -228,7 +228,7 @@ public class CustomDriverDetailService implements UserDetailsService {
         Driver foundDriver = driver.get();
         return new User(
                 foundDriver.getUserId().toString(),
-                "",   // no stored password — token-only auth
+                "",   // no stored password â€” token-only auth
                 List.of(new SimpleGrantedAuthority("ROLE_DRIVER"))
         );
     }
@@ -236,15 +236,15 @@ public class CustomDriverDetailService implements UserDetailsService {
 ```
 
 **Key design decisions:**
-- `loadUserByUsername(String userId)` — the "username" is `userId` cast to String (the JWT subject).
-- Password field is an **empty string** `""` — `Driver` entity has no password column; auth is solely token-based.
+- `loadUserByUsername(String userId)` â€” the "username" is `userId` cast to String (the JWT subject).
+- Password field is an **empty string** `""` â€” `Driver` entity has no password column; auth is solely token-based.
 - Authority is hardcoded to `ROLE_DRIVER`.
 
-**Difference from `user-service`:** `user-service` loads by `email` and reads the stored BCrypt password. Driver service has neither — it only validates the JWT subject maps to a real driver row.
+**Difference from `user-service`:** `user-service` loads by `email` and reads the stored BCrypt password. Driver service has neither â€” it only validates the JWT subject maps to a real driver row.
 
 ---
 
-### 5.5 `config/JwtAuthenticationFilter.java` — New File
+### 5.5 `config/JwtAuthenticationFilter.java` â€” New File
 
 **Path:** `microservices/driver-service/src/main/java/com/rideshare/driverservice/config/JwtAuthenticationFilter.java`
 
@@ -316,11 +316,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 }
 ```
 
-**Logic is identical to `user-service` filter** — only package and injected service names differ.
+**Logic is identical to `user-service` filter** â€” only package and injected service names differ.
 
 ---
 
-### 5.6 `config/SecurityConfig.java` — New File
+### 5.6 `config/SecurityConfig.java` â€” New File
 
 **Path:** `microservices/driver-service/src/main/java/com/rideshare/driverservice/config/SecurityConfig.java`
 
@@ -366,12 +366,12 @@ public class SecurityConfig {
 
 **Key difference from `user-service`:**
 - `user-service` permits `"/auth/**"` without a token (login/register are public).
-- `driver-service` has **no public endpoints** — every request requires a valid Bearer token.
-- No `PasswordEncoder` bean — `driver-service` does not encode or validate passwords.
+- `driver-service` has **no public endpoints** â€” every request requires a valid Bearer token.
+- No `PasswordEncoder` bean â€” `driver-service` does not encode or validate passwords.
 
 ---
 
-## 6. Security Architecture — JWT Flow Across Services
+## 6. Security Architecture â€” JWT Flow Across Services
 
 ```
 Client
@@ -403,7 +403,7 @@ driver-service (port 8082)
 DriverController.createDriver()  <- executes only if token is valid
 ```
 
-> [!NOTE]
+> **NOTE:**
 > The shared secret means the driver-service trusts **any token issued by user-service**.
 > This is a common microservice pattern (shared symmetric key). The limitation is that a
 > compromised user token also grants access to driver endpoints. Consider asymmetric JWT
@@ -417,7 +417,7 @@ DriverController.createDriver()  <- executes only if token is valid
 |---|---|---|---|
 | R1 | JWT secret in plaintext in `application.yaml` | **HIGH** | Must be externalised before any cloud deployment |
 | R2 | `CustomDriverDetailService` does `Long.parseLong(userId)` without try/catch | **MEDIUM** | A malformed token subject (non-numeric) will throw `NumberFormatException`, resulting in HTTP 500 instead of 401 |
-| R3 | Empty password `""` in `UserDetails` | **LOW** | Benign — no password-based auth path exists. If Spring Security's `DaoAuthenticationProvider` is ever wired in, empty password could cause subtle failures |
+| R3 | Empty password `""` in `UserDetails` | **LOW** | Benign â€” no password-based auth path exists. If Spring Security's `DaoAuthenticationProvider` is ever wired in, empty password could cause subtle failures |
 | R4 | No public endpoint in `SecurityConfig` | **LOW-MEDIUM** | If a health-check endpoint (e.g., `/actuator/health`) is added later, it will require a token unless `SecurityConfig` is updated |
 | R5 | `GlobalExceptionHandler.java` line endings changed by IDE | **NONE** | Functionally identical to committed version; safe to commit as-is |
 | R6 | Single shared secret across services | **MEDIUM** | Rotating the secret requires redeployment of both services simultaneously |
@@ -459,7 +459,7 @@ rm microservices/driver-service/src/main/java/com/rideshare/driverservice/servic
 rm microservices/driver-service/src/main/java/com/rideshare/driverservice/service/CustomDriverDetailService.java
 ```
 
-After rollback, the driver-service will have **no authentication** — all endpoints will be publicly accessible again.
+After rollback, the driver-service will have **no authentication** â€” all endpoints will be publicly accessible again.
 
 ---
 
@@ -468,7 +468,7 @@ After rollback, the driver-service will have **no authentication** — all endpo
 - [ ] Commit these changes: `git add microservices/driver-service && git commit -m "driver-service: add JWT security layer"`
 - [ ] Move `jwt.secret` to an environment variable (`JWT_SECRET`) and reference as `${JWT_SECRET}` in `application.yaml`
 - [ ] Add try/catch around `Long.parseLong(userId)` in `CustomDriverDetailService` (see Risk R2)
-- [ ] Test: call `POST /drivers` **without** a token → expect `403 Forbidden`
-- [ ] Test: call `POST /drivers` with a **valid** user-service token → expect `201 Created`
-- [ ] Test: call `POST /drivers` with an **expired/tampered** token → expect `403 Forbidden`
+- [ ] Test: call `POST /drivers` **without** a token â†’ expect `403 Forbidden`
+- [ ] Test: call `POST /drivers` with a **valid** user-service token â†’ expect `201 Created`
+- [ ] Test: call `POST /drivers` with an **expired/tampered** token â†’ expect `403 Forbidden`
 - [ ] If actuator health checks are required, permit `/actuator/health` in `SecurityConfig`
