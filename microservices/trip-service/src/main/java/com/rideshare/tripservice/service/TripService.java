@@ -1,12 +1,9 @@
 package com.rideshare.tripservice.service;
 
-import com.rideshare.tripservice.client.DriverAvailability;
-import com.rideshare.tripservice.client.DriverAvailabilityDtoResponse;
 import com.rideshare.tripservice.client.DriverFeignClient;
 import com.rideshare.tripservice.client.MatchRequest;
 import com.rideshare.tripservice.client.MatchResponse;
 import com.rideshare.tripservice.client.MatchingFeignClient;
-import com.rideshare.tripservice.client.UpdateDriverAvailabilityRequest;
 import com.rideshare.tripservice.client.UserDto;
 import com.rideshare.tripservice.client.UserFeignClient;
 import com.rideshare.tripservice.dto.*;
@@ -113,22 +110,17 @@ public class TripService {
                     "Trip already has a driver assigned");
         }
 
-        // Check driver exists and is ONLINE via driver-service
-        DriverAvailabilityDtoResponse driverAvailability =
-                driverFeignClient.getDriverAvailability(request.driverId());
-
-        if (driverAvailability.getAvailability() != DriverAvailability.ONLINE) {
+        // Atomically claim the driver (checks ONLINE + sets BUSY in one transaction).
+        // If another request grabbed this driver first, driver-service returns 409 → FeignException.Conflict.
+        try {
+            driverFeignClient.claimDriver(request.driverId());
+        } catch (feign.FeignException.Conflict e) {
             throw new IllegalStateException(
-                    "Driver is not available. Current status: "
-                            + driverAvailability.getAvailability());
+                    "Driver " + request.driverId() + " was just claimed by another request");
+        } catch (feign.FeignException.UnprocessableEntity | feign.FeignException.BadRequest e) {
+            throw new IllegalStateException(
+                    "Driver " + request.driverId() + " is not available for assignment");
         }
-
-        // Mark driver as BUSY in driver-service
-        UpdateDriverAvailabilityRequest busyRequest =
-                new UpdateDriverAvailabilityRequest();
-        busyRequest.setId(request.driverId());
-        busyRequest.setAvailability(DriverAvailability.BUSY);
-        driverFeignClient.updateDriverAvailability(busyRequest);
 
         trip.setDriverId(request.driverId());
         trip.setStatus(TripStatus.MATCHED);
@@ -142,6 +134,7 @@ public class TripService {
         );
         return savedTrip;
     }
+
 
     public Trip updateTripStatus(Long tripId, UpdateTripStatusRequest request) {
         Trip trip = findTripById(tripId);

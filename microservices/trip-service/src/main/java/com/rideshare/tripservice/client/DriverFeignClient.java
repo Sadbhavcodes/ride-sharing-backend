@@ -3,6 +3,7 @@ package com.rideshare.tripservice.client;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -16,6 +17,10 @@ public interface DriverFeignClient {
     DriverAvailabilityDtoResponse updateDriverAvailability(
             @RequestBody UpdateDriverAvailabilityRequest request);
 
-    @org.springframework.web.bind.annotation.PostMapping("/drivers/{id}/release")
+    @PostMapping("/drivers/{id}/claim")
+    DriverAvailabilityDtoResponse claimDriver(@PathVariable("id") Long driverId);
+
+    @PostMapping("/drivers/{id}/release")
     void releaseDriver(@PathVariable("id") Long driverId);
 }
+
