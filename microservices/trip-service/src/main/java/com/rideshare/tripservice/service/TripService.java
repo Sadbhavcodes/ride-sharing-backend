@@ -13,6 +13,7 @@ import com.rideshare.tripservice.dto.*;
 import com.rideshare.tripservice.entity.Trip;
 import com.rideshare.tripservice.entity.TripStatus;
 import com.rideshare.tripservice.exception.TripNotFoundException;
+import com.rideshare.tripservice.publisher.TripEventPublisher;
 import com.rideshare.tripservice.repository.TripRepository;
 import org.springframework.stereotype.Service;
 
@@ -25,15 +26,18 @@ public class TripService {
     private final UserFeignClient userFeignClient;
     private final DriverFeignClient driverFeignClient;
     private final MatchingFeignClient matchingFeignClient;
+    private final TripEventPublisher tripEventPublisher;
 
     public TripService(TripRepository tripRepository,
                        UserFeignClient userFeignClient,
                        DriverFeignClient driverFeignClient,
-                       MatchingFeignClient matchingFeignClient) {
+                       MatchingFeignClient matchingFeignClient,
+                       TripEventPublisher tripEventPublisher) {
         this.tripRepository = tripRepository;
         this.userFeignClient = userFeignClient;
         this.driverFeignClient = driverFeignClient;
         this.matchingFeignClient = matchingFeignClient;
+        this.tripEventPublisher = tripEventPublisher;
     }
 
     public Trip createTrip(CreateTripRequest request) {
@@ -62,11 +66,25 @@ public class TripService {
             MatchResponse response = matchingFeignClient.findMatch(matchRequest);
             savedTrip.setDriverId(response.driverId());
             savedTrip.setStatus(TripStatus.MATCHED);
-            return tripRepository.save(savedTrip);
+            // Persist the matched driverId FIRST, then publish event
+            Trip matchedTrip = tripRepository.save(savedTrip);
+            tripEventPublisher.publishTripMatched(
+                    matchedTrip.getId(),
+                    matchedTrip.getDriverId(),
+                    matchedTrip.getRiderId()
+            );
+            return matchedTrip;
         } catch (Exception e) {
             // Scenario 4: Matching failed (e.g. timeout / no drivers available)
             savedTrip.setStatus(TripStatus.CANCELLED);
-            return tripRepository.save(savedTrip);
+            Trip cancelledTrip = tripRepository.save(savedTrip);
+            // driverId is null here — no driver was ever assigned
+            tripEventPublisher.publishTripCancelled(
+                    cancelledTrip.getId(),
+                    null,
+                    cancelledTrip.getRiderId()
+            );
+            return cancelledTrip;
         }
     }
 
@@ -115,7 +133,14 @@ public class TripService {
         trip.setDriverId(request.driverId());
         trip.setStatus(TripStatus.MATCHED);
 
-        return tripRepository.save(trip);
+        // Persist driverId to DB FIRST, then publish event
+        Trip savedTrip = tripRepository.save(trip);
+        tripEventPublisher.publishTripMatched(
+                savedTrip.getId(),
+                savedTrip.getDriverId(),
+                savedTrip.getRiderId()
+        );
+        return savedTrip;
     }
 
     public Trip updateTripStatus(Long tripId, UpdateTripStatusRequest request) {
@@ -134,7 +159,24 @@ public class TripService {
             }
         }
 
-        return tripRepository.save(trip);
+        // Persist status FIRST, then publish the corresponding event
+        Trip savedTrip = tripRepository.save(trip);
+
+        if (savedTrip.getStatus() == TripStatus.COMPLETED) {
+            tripEventPublisher.publishTripCompleted(
+                    savedTrip.getId(),
+                    savedTrip.getDriverId(),
+                    savedTrip.getRiderId()
+            );
+        } else if (savedTrip.getStatus() == TripStatus.CANCELLED) {
+            tripEventPublisher.publishTripCancelled(
+                    savedTrip.getId(),
+                    savedTrip.getDriverId(),
+                    savedTrip.getRiderId()
+            );
+        }
+
+        return savedTrip;
     }
 
     private Trip findTripById(Long id) {
@@ -189,7 +231,13 @@ public class TripService {
             trip.setStatus(TripStatus.CANCELLED);
         }
 
-        tripRepository.save(trip);
-        return new CancelTripResponse(trip.getId());
+        // Persist status FIRST, then publish event
+        Trip savedTrip = tripRepository.save(trip);
+        tripEventPublisher.publishTripCancelled(
+                savedTrip.getId(),
+                savedTrip.getDriverId(),   // null if no driver was assigned
+                savedTrip.getRiderId()
+        );
+        return new CancelTripResponse(savedTrip.getId());
     }
 }
