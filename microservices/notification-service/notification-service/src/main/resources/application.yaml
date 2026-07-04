@@ -1,3 +1,6 @@
 spring:
   application:
-    name: notification-service
+    name: notificationservice
+
+  config:
+    import: configserver:${CONFIG_SERVER_URL:http://localhost:8888}
