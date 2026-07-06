@@ -27,6 +27,15 @@ public class Trip {
     @Enumerated(value = EnumType.STRING)
     private TripStatus status;
 
+    // Set when driver starts the trip (IN_PROGRESS transition)
+    private LocalDateTime tripStartTime;
+
+    // Set when trip is completed (COMPLETED transition)
+    private LocalDateTime tripEndTime;
+
+    // Populated via location-service Feign call on COMPLETED transition
+    private Double distanceKm;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

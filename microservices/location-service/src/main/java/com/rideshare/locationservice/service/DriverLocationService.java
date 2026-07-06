@@ -1,5 +1,6 @@
 package com.rideshare.locationservice.service;
 
+import com.rideshare.locationservice.dto.DistanceResponse;
 import com.rideshare.locationservice.dto.DriverLocationResponse;
 import com.rideshare.locationservice.dto.UpdateDriverLocationRequest;
 import com.rideshare.locationservice.entity.DriverLocation;
@@ -94,6 +95,35 @@ public class DriverLocationService {
                 .orElseThrow(() -> new DriverLocationNotFoundException(driverId));
 
         driverLocationRepository.delete(driverLocation);
+    }
+
+    /**
+     * Calculates the straight-line distance in kilometres between two geographic
+     * coordinates using the Haversine formula.
+     * <p>
+     * The location-service is the single authority for all geo calculations in
+     * this system — trip-service delegates here instead of doing maths itself,
+     * keeping service boundaries clean.
+     */
+    public DistanceResponse calculateDistance(
+            double fromLat, double fromLng,
+            double toLat,   double toLng
+    ) {
+        final double EARTH_RADIUS_KM = 6371.0;
+
+        double dLat = Math.toRadians(toLat - fromLat);
+        double dLng = Math.toRadians(toLng - fromLng);
+
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                 + Math.cos(Math.toRadians(fromLat)) * Math.cos(Math.toRadians(toLat))
+                 * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        double distanceKm = EARTH_RADIUS_KM * c;
+
+        // Round to 2 decimal places for clean event payloads
+        double rounded = Math.round(distanceKm * 100.0) / 100.0;
+        return new DistanceResponse(rounded);
     }
 
 }

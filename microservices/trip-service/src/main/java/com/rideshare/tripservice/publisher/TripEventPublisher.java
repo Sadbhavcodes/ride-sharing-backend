@@ -24,10 +24,18 @@ public class TripEventPublisher {
         );
     }
 
-    public void publishTripCompleted(Long tripId, Long driverId, Long riderId) {
+    /**
+     * Publishes the raw trip data needed by payment-service to calculate the fare.
+     * distanceKm comes from location-service (Haversine), tripStartTime/tripEndTime
+     * are set by trip-service when status transitions happen.
+     */
+    public void publishTripCompleted(Long tripId, Long driverId, Long riderId,
+                                     Double distanceKm,
+                                     LocalDateTime tripStartTime,
+                                     LocalDateTime tripEndTime) {
         publish(
                 "trip.completed",
-                new TripCompletedEvent(tripId, driverId, riderId, LocalDateTime.now())
+                new TripCompletedEvent(tripId, driverId, riderId, distanceKm, tripStartTime, tripEndTime)
         );
     }
 
@@ -46,4 +54,3 @@ public class TripEventPublisher {
         );
     }
 }
-
