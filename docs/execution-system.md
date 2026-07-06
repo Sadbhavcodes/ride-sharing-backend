@@ -392,10 +392,10 @@ A Notion-style dashboard structure. Recreate this as a Notion page (or a `DASHBO
 | Eureka | 3 | | | n/a | | |
 | Gateway | 4 | | | | | |
 | Location Service | 5 | | | | | |
-| Matching Service | 6 | | | | | |
-| RabbitMQ | 7 | | | n/a | | |
-| Notification Service | 7 | | | | | |
-| Payment Service | 8 | | | | | |
+| Matching Service | 6 | Done | Done | Yes | | |
+| RabbitMQ | 7 | Done | Done | n/a | | |
+| Notification Service | 7 | Done | Done | Yes | | |
+| Payment Service | 8 | Done | Done | Yes | | |
 
 ## 🚀 Deployment Status
 | Environment | Last Deployed | All Services Healthy? | Smoke Test Passed? | Notes |

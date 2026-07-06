@@ -2,7 +2,7 @@
 
 > **Project:** Ride-Sharing Microservices Backend
 > **Stack:** Java 21 · Spring Boot 3 · PostgreSQL · Spring Cloud (Config, Eureka, Gateway)
-> **Last Updated:** July 03, 2026
+> **Last Updated:** July 06, 2026
 > **Repo:** `e:\Projects\ride-sharing-backend`
 
 ---
@@ -28,9 +28,11 @@ This document tracks every completed phase, sprint, and architectural decision f
 | Cross-service | JWT centralized at gateway | ✅ Complete |
 | Microservice | Location Service | ✅ Complete |
 | Microservice | Matching Service | ✅ Complete |
-| Deployment | Dockerization | ✅ Complete |
-| Deployment | AWS ECR & EC2 | ✅ Complete |
-| Next | Notification Service | 🔜 Phase 7 |
+| Microservice | Notification Service | ✅ Complete |
+| Microservice | Payment Service | ✅ Complete |
+| Deployment | Dockerization | ✅ Complete (Needs update for new services) |
+| Deployment | AWS ECR & EC2 | ✅ Complete (Needs update for new services) |
+| Next | Image Building & ECR Push | 🔜 Pending |
 
 ---
 
@@ -349,6 +351,24 @@ routes:
 
 ---
 
+## Phase 7 & 8 — Event-Driven Notifications & Payments ✅ Complete
+
+**Theme:** Asynchronous orchestration, RabbitMQ, Idempotency
+
+**What was done:**
+- Set up RabbitMQ infrastructure using Cloud Config for `notification-service` and `payment-service`.
+- Centralized event exchanges (`trip.events`, `payment.events`) with Dead Letter Queues (`trip.events.dlx`).
+- **Payment Service (8087):** Implemented idempotent `TripCompletedEvent` consumption. Integrated a `MockPaymentGateway` to simulate charge logic with random success/failure paths.
+- **Notification Service (8086):** Consumes `TripMatched`, `TripCompleted`, `TripCancelled`, and `PaymentCompleted` events.
+- **Event Flow Verified:** `TripService` -> `LocationService` (sync) -> `RabbitMQ` -> `PaymentService` -> `RabbitMQ` -> `NotificationService`.
+
+### Exit criteria met
+- ✅ Services connected to RabbitMQ and decoupled.
+- ✅ Distributed race conditions handled via idempotent checks.
+- ✅ Complete end-to-end event choreography working.
+
+---
+
 ## Phase 9 & 10 — Dockerization & AWS Deployment ✅ Complete
 
 **Theme:** Containerization and Cloud Deployment
@@ -400,8 +420,8 @@ Per the execution plan in `execution-system.md`:
 
 | Phase | Component | Status |
 |---|---|---|
-| Phase 7 | RabbitMQ + Notification Service | 🔜 Not started |
-| Phase 8 | Payment Service | 🔜 Not started |
+| Phase 9.1 | Dockerization updates for Payment/Notification | 🔜 Next up |
+| Phase 10.1| Push to AWS ECR and run via updated Compose | 🔜 Next up |
 
 ---
 

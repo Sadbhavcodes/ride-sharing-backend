@@ -12,11 +12,13 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitMQConfig {
 
     public static final String TRIP_EVENT_EXCHANGE = "trip.events";
+    public static final String PAYMENT_EVENTS_EXCHANGE = "payment.events";
     public static final String DEAD_LETTER_EXCHANGE = "trip.events.dlx";
 
     public static final String MATCHED_QUEUE = "notification.trip.matched";
     public static final String COMPLETED_QUEUE = "notification.trip.completed";
     public static final String CANCELLED_QUEUE = "notification.trip.cancelled";
+    public static final String PAYMENT_COMPLETED_QUEUE = "notification.payment.completed";
 
     public static final String DEAD_LETTER_QUEUE = "trip.events.dead-letter";
 
@@ -24,6 +26,11 @@ public class RabbitMQConfig {
     @Bean
     public TopicExchange tripEventsExchange() {
         return new TopicExchange(TRIP_EVENT_EXCHANGE);
+    }
+
+    @Bean
+    public TopicExchange paymentEventsExchange() {
+        return new TopicExchange(PAYMENT_EVENTS_EXCHANGE);
     }
 
     @Bean
@@ -53,6 +60,13 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Queue paymentCompletedQueue() {
+        return QueueBuilder.durable(PAYMENT_COMPLETED_QUEUE)
+                .withArgument("x-dead-letter-exchange", DEAD_LETTER_EXCHANGE)
+                .build();
+    }
+
+    @Bean
     public Queue deadLetterQueue() {
         return QueueBuilder.durable(DEAD_LETTER_QUEUE).build();
     }
@@ -76,6 +90,13 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(cancelledQueue())
                 .to(tripEventsExchange())
                 .with("trip.cancelled");
+    }
+
+    @Bean
+    public Binding paymentCompletedBinding() {
+        return BindingBuilder.bind(paymentCompletedQueue())
+                .to(paymentEventsExchange())
+                .with("payment.completed");
     }
 
     @Bean

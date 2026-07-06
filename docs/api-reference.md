@@ -32,6 +32,8 @@
 | Trip Service | `tripservice` | `8083` | `http://localhost:8080/trips/**` |
 | Location Service | `locationservice` | `8084` | `http://localhost:8080/locations/**` |
 | Matching Service | `matchingservice` | `8085` | Not exposed (Internal only) |
+| Notification Service| `notificationservice` | `8086` | Not exposed (Internal RabbitMQ Consumer) |
+| Payment Service  | `paymentservice` | `8087` | `http://localhost:8080/payments/**` |
 
 > **IMPORTANT:**
 > All client-facing requests must go through the Gateway at port **8080**.
@@ -923,6 +925,90 @@ Structured `ErrorResponse`:
 
 ---
 
+## 5. Payment Service (Port 8087)
+
+Manages trip payments and integrations with payment gateways.
+**Gateway base:** `http://localhost:8080`
+
+---
+
+### GET /payments/trips/{tripId}
+
+Retrieve the payment details associated with a specific trip.
+
+**Method:** `GET`
+**URL:** `http://localhost:8080/payments/trips/{tripId}`
+**Auth Required:** Yes
+
+#### Response — `200 OK`
+
+```json
+{
+  "id": 1,
+  "tripId": 3,
+  "riderId": 1,
+  "amount": 35.50,
+  "status": "COMPLETED",
+  "transactionId": "MOCK-TXN-1718293041",
+  "createdAt": "2026-07-06T20:30:00",
+  "updatedAt": "2026-07-06T20:30:05"
+}
+```
+
+---
+
+### GET /payments/{id}
+
+Retrieve a specific payment by its internal ID.
+
+**Method:** `GET`
+**URL:** `http://localhost:8080/payments/{id}`
+**Auth Required:** Yes
+
+#### Response — `200 OK`
+
+```json
+{
+  "id": 1,
+  "tripId": 3,
+  "riderId": 1,
+  "amount": 35.50,
+  "status": "COMPLETED",
+  "transactionId": "MOCK-TXN-1718293041",
+  "createdAt": "2026-07-06T20:30:00",
+  "updatedAt": "2026-07-06T20:30:05"
+}
+```
+
+---
+
+### GET /payments/riders/{riderId}
+
+Retrieve all payments made by a specific rider.
+
+**Method:** `GET`
+**URL:** `http://localhost:8080/payments/riders/{riderId}`
+**Auth Required:** Yes
+
+#### Response — `200 OK`
+
+```json
+[
+  {
+    "id": 1,
+    "tripId": 3,
+    "riderId": 1,
+    "amount": 35.50,
+    "status": "COMPLETED",
+    "transactionId": "MOCK-TXN-1718293041",
+    "createdAt": "2026-07-06T20:30:00",
+    "updatedAt": "2026-07-06T20:30:05"
+  }
+]
+```
+
+---
+
 ## Quick Reference — All Endpoints
 
 All URLs are via Gateway at `http://localhost:8080`.
@@ -954,4 +1040,8 @@ All URLs are via Gateway at `http://localhost:8080`.
 | 23 | `PATCH` | `/trips/{id}/status` | Yes | Update trip status |
 | 24 | `POST` | `/trips/{id}/cancel` | Yes | Cancel trip safely |
 | 25 | `POST` | `/locations/ping` | Yes | Update driver location |
-| 26 | `POST` | `/locations/drivers/nearby` | Yes | Find nearby drivers (Internal) |
+| 26 | `GET` | `/locations/{id}` | Yes | Get location by ID |
+| 27 | `DELETE` | `/locations/drivers/{driverId}` | Yes | Delete driver location |
+| 28 | `GET` | `/payments/trips/{tripId}` | Yes | Get payment by trip |
+| 29 | `GET` | `/payments/{id}` | Yes | Get payment by ID |
+| 30 | `GET` | `/payments/riders/{riderId}` | Yes | Get all payments for rider |
