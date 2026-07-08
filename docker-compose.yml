@@ -1,67 +1,61 @@
 services:
-  postgres-user:
-    image: postgres:17
-    container_name: postgres-user
+
+  # ===========================================================================
+  # DATABASE LAYER — LOCAL OPTIMIZED: single PostGIS-enabled Postgres instance
+  # All 6 logical databases live inside one container → saves ~1.5 GB of RAM.
+  # The init.sql script creates the extra databases on first startup.
+  #
+  # ORIGINAL multi-DB config is commented out at the bottom of this file.
+  # To switch back to isolated databases (e.g. for prod-like testing), comment
+  # this block out and uncomment the original section.
+  # ===========================================================================
+  postgres:
+    image: postgis/postgis:17-3.5
+    container_name: postgres
     environment:
-      POSTGRES_DB: rideshare_users
+      POSTGRES_DB: rideshare_users       # primary DB — created automatically
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
     volumes:
-      - postgres-user-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - ride-share-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d rideshare_users"]
+      # Wait until ALL databases are ready, not just the default one
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rideshare_users && pg_isready -U postgres -d rideshare_trips && pg_isready -U postgres -d rideshare_locations"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 20s
 
-  postgres-driver:
-    image: postgres:17
-    container_name: postgres-driver
-    environment:
-      POSTGRES_DB: rideshare_drivers
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
     ports:
-      - "5433:5432"
-    volumes:
-      - postgres-driver-data:/var/lib/postgresql/data
+      - "5672:5672"
+      - "15672:15672"
     networks:
       - ride-share-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d rideshare_drivers"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
       retries: 5
 
-  postgres-trip:
-    image: postgres:17
-    container_name: postgres-trip
-    environment:
-      POSTGRES_DB: rideshare_trips
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5434:5432"
-    volumes:
-      - postgres-trip-data:/var/lib/postgresql/data
-    networks:
-      - ride-share-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d rideshare_trips"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
+  # ===========================================================================
+  # INFRASTRUCTURE LAYER
+  # ===========================================================================
   config-server:
     build:
       context: ./infrastructure/config-server
     container_name: config-server
     ports:
       - "8888:8888"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx128m"
     volumes:
       - ./infrastructure/config-server/src/main/resources/config:/config
     networks:
@@ -81,6 +75,7 @@ services:
       - "8761:8761"
     environment:
       CONFIG_SERVER_URL: http://config-server:8888
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx128m"
     depends_on:
       config-server:
         condition: service_healthy
@@ -102,6 +97,7 @@ services:
     environment:
       CONFIG_SERVER_URL: http://config-server:8888
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx128m"
     depends_on:
       config-server:
         condition: service_healthy
@@ -116,6 +112,11 @@ services:
       retries: 5
       start_period: 30s
 
+  # ===========================================================================
+  # MICROSERVICES LAYER
+  # All services point to the single 'postgres' container on port 5432.
+  # JVM memory is capped at 256 MB per service to stay laptop-friendly.
+  # ===========================================================================
   user-service:
     build:
       context: ./microservices/user-service
@@ -124,10 +125,11 @@ services:
       - "8081:8081"
     environment:
       CONFIG_SERVER_URL: http://config-server:8888
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-user:5432/rideshare_users
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rideshare_users
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
     depends_on:
-      postgres-user:
+      postgres:
         condition: service_healthy
       config-server:
         condition: service_healthy
@@ -150,10 +152,11 @@ services:
       - "8082:8082"
     environment:
       CONFIG_SERVER_URL: http://config-server:8888
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-driver:5432/rideshare_drivers
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rideshare_drivers
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
     depends_on:
-      postgres-driver:
+      postgres:
         condition: service_healthy
       config-server:
         condition: service_healthy
@@ -176,10 +179,14 @@ services:
       - "8083:8083"
     environment:
       CONFIG_SERVER_URL: http://config-server:8888
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-trip:5432/rideshare_trips
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rideshare_trips
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      SPRING_RABBITMQ_HOST: rabbitmq
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
     depends_on:
-      postgres-trip:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       config-server:
         condition: service_healthy
@@ -194,14 +201,254 @@ services:
       retries: 5
       start_period: 30s
 
+  matching-service:
+    build:
+      context: ./microservices/matching-service/matching-service
+    container_name: matching-service
+    ports:
+      - "8084:8084"
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rideshare_matching
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - ride-share-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8084/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  location-service:
+    build:
+      context: ./microservices/location-service
+    container_name: location-service
+    ports:
+      - "8085:8085"
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rideshare_locations
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - ride-share-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8085/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  notification-service:
+    build:
+      context: ./microservices/notification-service/notification-service
+    container_name: notification-service
+    ports:
+      - "8086:8086"
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      SPRING_RABBITMQ_HOST: rabbitmq
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - ride-share-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8086/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  payment-service:
+    build:
+      context: ./microservices/payment-service/payment-service
+    container_name: payment-service
+    ports:
+      - "8087:8087"
+    environment:
+      CONFIG_SERVER_URL: http://config-server:8888
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rideshare_payments
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka
+      SPRING_RABBITMQ_HOST: rabbitmq
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx256m"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - ride-share-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8087/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+# =============================================================================
 volumes:
-  postgres-user-data:
-  postgres-driver-data:
-  postgres-trip-data:
+  postgres-data:   # single volume for the consolidated postgres container
 
 networks:
   ride-share-network:
 
-# docker compose overrides are for docker networking environment where docker containers can run with docker
-# environment and without disturbing the applications actual local environment settings
-# this way we can run the project locally, on docker and later for production without changing anything
+# docker compose overrides are for docker networking environment where docker
+# containers can run with docker environment and without disturbing the
+# application's actual local environment settings — run locally, on docker,
+# and later for production without changing application code.
+
+# =============================================================================
+# ORIGINAL MULTI-DATABASE CONFIG (kept for reference / prod-like testing)
+# To restore isolated databases: comment out the 'postgres' service above,
+# uncomment this block, and update each service's SPRING_DATASOURCE_URL to
+# point to its dedicated container (e.g. postgres-user:5432, postgres-driver:5433, ...)
+# =============================================================================
+#
+#  postgres-user:
+#    image: postgres:17
+#    container_name: postgres-user
+#    environment:
+#      POSTGRES_DB: rideshare_users
+#      POSTGRES_USER: postgres
+#      POSTGRES_PASSWORD: postgres
+#    ports:
+#      - "5432:5432"
+#    volumes:
+#      - postgres-user-data:/var/lib/postgresql/data
+#    networks:
+#      - ride-share-network
+#    healthcheck:
+#      test: ["CMD-SHELL", "pg_isready -U postgres -d rideshare_users"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+#
+#  postgres-driver:
+#    image: postgres:17
+#    container_name: postgres-driver
+#    environment:
+#      POSTGRES_DB: rideshare_drivers
+#      POSTGRES_USER: postgres
+#      POSTGRES_PASSWORD: postgres
+#    ports:
+#      - "5433:5432"
+#    volumes:
+#      - postgres-driver-data:/var/lib/postgresql/data
+#    networks:
+#      - ride-share-network
+#    healthcheck:
+#      test: ["CMD-SHELL", "pg_isready -U postgres -d rideshare_drivers"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+#
+#  postgres-trip:
+#    image: postgres:17
+#    container_name: postgres-trip
+#    environment:
+#      POSTGRES_DB: rideshare_trips
+#      POSTGRES_USER: postgres
+#      POSTGRES_PASSWORD: postgres
+#    ports:
+#      - "5434:5432"
+#    volumes:
+#      - postgres-trip-data:/var/lib/postgresql/data
+#    networks:
+#      - ride-share-network
+#    healthcheck:
+#      test: ["CMD-SHELL", "pg_isready -U postgres -d rideshare_trips"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+#
+#  postgres-matching:
+#    image: postgres:17
+#    container_name: postgres-matching
+#    environment:
+#      POSTGRES_DB: rideshare_matching
+#      POSTGRES_USER: postgres
+#      POSTGRES_PASSWORD: postgres
+#    ports:
+#      - "5435:5432"
+#    volumes:
+#      - postgres-matching-data:/var/lib/postgresql/data
+#    networks:
+#      - ride-share-network
+#    healthcheck:
+#      test: ["CMD-SHELL", "pg_isready -U postgres -d rideshare_matching"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+#
+#  postgres-location:
+#    image: postgis/postgis:17-3.5
+#    container_name: postgres-location
+#    environment:
+#      POSTGRES_DB: rideshare_locations
+#      POSTGRES_USER: postgres
+#      POSTGRES_PASSWORD: postgres
+#    ports:
+#      - "5436:5432"
+#    volumes:
+#      - postgres-location-data:/var/lib/postgresql/data
+#    networks:
+#      - ride-share-network
+#    healthcheck:
+#      test: ["CMD-SHELL", "pg_isready -U postgres -d rideshare_locations"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+#
+#  postgres-payment:
+#    image: postgres:17
+#    container_name: postgres-payment
+#    environment:
+#      POSTGRES_DB: rideshare_payments
+#      POSTGRES_USER: postgres
+#      POSTGRES_PASSWORD: postgres
+#    ports:
+#      - "5437:5432"
+#    volumes:
+#      - postgres-payment-data:/var/lib/postgresql/data
+#    networks:
+#      - ride-share-network
+#    healthcheck:
+#      test: ["CMD-SHELL", "pg_isready -U postgres -d rideshare_payments"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+#
+# volumes (for multi-DB):
+#   postgres-user-data:
+#   postgres-driver-data:
+#   postgres-trip-data:
+#   postgres-matching-data:
+#   postgres-location-data:
+#   postgres-payment-data:

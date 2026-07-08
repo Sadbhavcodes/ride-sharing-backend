@@ -11,12 +11,15 @@ import com.rideshare.paymentservice.gateway.PaymentGateway;
 import com.rideshare.paymentservice.repository.PaymentRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentService {
@@ -89,6 +92,24 @@ public class PaymentService {
             );
         }
     }
+
+    @Scheduled(fixedDelay = 60000) // Runs every 60 seconds
+    public void retryFailedPayments() {
+        List<Payment> failedPayments = paymentRepository.findByStatus(PaymentStatus.FAILED);
+        if (!failedPayments.isEmpty()) {
+            log.info("CronJob: Found {} failed payments. Retrying...", failedPayments.size());
+        }
+        
+        for (Payment payment : failedPayments) {
+            log.info("Retrying payment for tripId: {}", payment.getTripId());
+            GatewayResponse response = paymentGateway.chargeRider(
+                    payment.getIdempotencyKey(),
+                    payment.getAmount(),
+                    payment.getRiderId()
+            );
+            finalizePayment(payment.getId(), response);
+        }
+    }
     private PaymentResponse toResponse(Payment p) {
         return new PaymentResponse(
                 p.getId(),
@@ -107,12 +128,14 @@ public class PaymentService {
         BigDecimal pricePerMinute = new BigDecimal("1.00");
 
         Long durationMinutes = Duration.between(
-                event.startTime(),
-                event.endTime()
+                event.tripStartTime(),
+                event.tripEndTime()
         ).toMinutes();
 
+        double km = event.distanceKm();
+
         BigDecimal distanceCharge = pricePerKm.multiply(
-                BigDecimal.valueOf(event.distanceKm())
+                BigDecimal.valueOf(km)
         );
 
         BigDecimal timeCharge = pricePerMinute.multiply(

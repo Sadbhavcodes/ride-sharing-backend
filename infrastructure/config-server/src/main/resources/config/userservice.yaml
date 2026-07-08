@@ -13,5 +13,5 @@ spring:
     show-sql: true
 
 jwt:
-  secret: myVeryStrongSecretKeyForRideShareApplication2025
+  secret: ${JWT_SECRET:localDevSecretKeyForRideShareApp_DO_NOT_USE_IN_PROD}
   expiration: 86400000

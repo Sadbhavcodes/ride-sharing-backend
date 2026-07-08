@@ -8,7 +8,7 @@ management:
         include: health,info
 
 jwt:
-  secret: myVeryStrongSecretKeyForRideShareApplication2025
+  secret: ${JWT_SECRET:localDevSecretKeyForRideShareApp_DO_NOT_USE_IN_PROD}
   expiration: 86400000
 
 spring:
@@ -32,4 +32,17 @@ spring:
               predicates:
                 - Path=/trips/**
 
+            - id: matchingservice
+              uri: lb://MATCHINGSERVICE
+              predicates:
+                - Path=/matching/**
 
+            - id: locationservice
+              uri: lb://LOCATIONSERVICE
+              predicates:
+                - Path=/locations/**
+
+            - id: paymentservice
+              uri: lb://PAYMENTSERVICE
+              predicates:
+                - Path=/payments/**

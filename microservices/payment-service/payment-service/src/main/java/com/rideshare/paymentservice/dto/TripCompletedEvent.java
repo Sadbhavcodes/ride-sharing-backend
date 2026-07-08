@@ -7,7 +7,7 @@ public record TripCompletedEvent(
         Long driverId,
         Long riderId,
         Double distanceKm,
-        LocalDateTime startTime,
-        LocalDateTime endTime
+        LocalDateTime tripStartTime,
+        LocalDateTime tripEndTime
 ) {
 }

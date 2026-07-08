@@ -217,9 +217,8 @@ public class TripService {
             );
             return response.distanceKm();
         } catch (Exception e) {
-            log.warn("Could not fetch distance from location-service for trip {}. " +
-                     "distanceKm will be null in TripCompletedEvent.", trip.getId(), e);
-            return null;
+            log.error("Could not fetch distance from location-service for trip {}.", trip.getId(), e);
+            throw new IllegalStateException("Location service is unavailable. Cannot calculate fare. Please try again.");
         }
     }
 

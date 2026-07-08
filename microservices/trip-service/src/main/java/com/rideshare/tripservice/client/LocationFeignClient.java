@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
  * distance between pickup and drop. The location-service is the single authority
  * for all geo calculations — no distance logic lives inside trip-service.
  */
-@FeignClient(name = "LOCATIONSERVICE", path = "/locations")
+@FeignClient(name = "locationservice", path = "/locations")
 public interface LocationFeignClient {
 
     @PostMapping("/distance")

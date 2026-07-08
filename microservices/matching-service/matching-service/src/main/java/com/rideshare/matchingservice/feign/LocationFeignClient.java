@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
 
-@FeignClient(name = "locationservice")
+@FeignClient(name = "locationservice", path = "/locations")
 public interface LocationFeignClient {
 
     @PostMapping("/drivers/nearby")

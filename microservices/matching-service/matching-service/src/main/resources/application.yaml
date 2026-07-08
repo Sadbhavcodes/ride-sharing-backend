@@ -10,3 +10,18 @@ eureka:
       defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka}
   instance:
     prefer-ip-address: true
+
+# Feign client retry and timeout settings
+# Retries help absorb transient 503/timeout when location-service or driver-service
+# are still warming up or momentarily overloaded.
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 3000   # ms — give services time to accept the connection
+        read-timeout: 5000      # ms — give services time to compute the response
+  retryer:
+    default:
+      period: 100           # initial retry interval (ms)
+      max-period: 1000      # max retry interval (ms) — exponential backoff cap
+      max-attempts: 3       # total attempts (1 original + 2 retries)

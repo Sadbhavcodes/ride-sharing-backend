@@ -4,3 +4,18 @@ spring:
 
   config:
     import: configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+
+# Feign client retry and timeout settings
+# trip-service makes Feign calls to user, driver, matching, and location services.
+# Retries absorb transient network hiccups without failing the business operation.
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 3000
+        read-timeout: 5000
+  retryer:
+    default:
+      period: 100
+      max-period: 1000
+      max-attempts: 3

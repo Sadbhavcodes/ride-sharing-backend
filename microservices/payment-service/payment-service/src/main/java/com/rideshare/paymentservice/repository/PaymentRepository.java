@@ -13,7 +13,7 @@ public interface PaymentRepository extends JpaRepository
         <Payment, Long> {
 
     Optional<Payment> findByTripId(Long tripId);
-    Optional<Payment> findByStatus(PaymentStatus status);
+    List<Payment> findByStatus(PaymentStatus status);
     boolean existsByTripId(Long tripId);
     List<Payment> findByRiderId(Long riderId);
 }

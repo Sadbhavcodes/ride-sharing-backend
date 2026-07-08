@@ -1,0 +1,72 @@
+# ==============================================================================
+# Java / Spring Boot Microservices .gitignore
+# ==============================================================================
+
+# Compiled class files
+*.class
+
+# Log files
+*.log
+logs/
+
+# Build directories (Maven/Gradle)
+target/
+**/target/
+build/
+**/build/
+
+# Package Files
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Virtual machine crash logs
+hs_err_pid*
+replay_pid*
+
+# ==============================================================================
+# IDEs and Editors
+# ==============================================================================
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.swp
+*.bak
+*~
+
+# ==============================================================================
+# OS Generated Files
+# ==============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ==============================================================================
+# Secrets and Environment Variables
+# ==============================================================================
+.env
+.env.*
+*.local
+credentials.json
+secrets.yaml
+
+# ==============================================================================
+# Project Specific
+# ==============================================================================
+# Ignore any temp databases or local docker volume mounts if they were created
+postgres-data/
+postgres-user-data/
+postgres-driver-data/
+postgres-trip-data/
+postgres-matching-data/
+postgres-location-data/
+postgres-payment-data/
